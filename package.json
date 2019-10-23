@@ -7,7 +7,8 @@
   "license": "BSD-3-Clause",
   "repository": "Polymer/pwa-starter-kit",
   "scripts": {
-    "start": "polymer serve",
+    "watch": "browser-sync start --proxy localhost:8080 --open --files \"src/**/*.js\" \"index.html\"",
+    "start": "polymer serve --port 8080 | npm run watch",
     "build": "polymer build --auto-base-path && gulp prpl-server",
     "build:static": "polymer build",
     "serve": "prpl-server --root server/build",
@@ -20,11 +21,14 @@
   },
   "dependencies": {
     "@webcomponents/webcomponentsjs": "^2.2.4",
+    "browser-sync": "^2.26.7",
+    "dexie": "^2.0.4",
     "lit-element": "^2.0.1",
     "pwa-helpers": "^0.9.0",
     "redux": "^4.0.0",
     "redux-thunk": "^2.3.0",
-    "reselect": "^4.0.0"
+    "reselect": "^4.0.0",
+    "webdav": "^2.10.0"
   },
   "devDependencies": {
     "@polymer/test-fixture": "^4.0.2",
