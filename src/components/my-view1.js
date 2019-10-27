@@ -8,8 +8,10 @@ import {
     setServer,
     setCurrentFile,
     play,
+    reload,
     next,
-    last
+    last,
+    pin
 } from '../actions/player.js'
 import player, { 
     contentSelector,
@@ -17,7 +19,8 @@ import player, {
     serverSelector,
     currentFileSelector,
     pathSelector,
-    isPlayingSelector
+    isPlayingSelector,
+    playerSourceSelector
 } from '../reducers/player.js'
 
 store.addReducers({
@@ -56,10 +59,13 @@ class MyView1 extends connect(store)(PageViewElement) {
                     display: flex;
                     background-color: beige;
                 }
-
+                .entry {
+                    cursor: default;
+                }
                 .name {
                     flex: 1;
                     margin: auto;
+                    cursor: pointer;
                 }
                 .entry.file:before {
                     content : "🎵";
@@ -75,11 +81,15 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .pinned {
                     opacity: 0.3;
+                    cursor: pointer;
+                }
+                .pinned.true {
+                    opacity: 1;
                 }
                 .cached {
                     color: lightgrey;
                 }
-                .cached.yes {
+                .cached.true {
                     color: green;
                 }
             `
@@ -91,27 +101,30 @@ class MyView1 extends connect(store)(PageViewElement) {
                 <button @click=${() => store.dispatch(last())}>⏮</button>
                 <button @click=${this._togglePlaying}>${this._isPlaying ? "⏸" : "▶️"}</button>
                 <button @click=${() => store.dispatch(next())}>⏭</button>
+                <button @click=${() => store.dispatch(reload())}>↻</button>
                 <audio
                     autoplay
                     @ended=${this._endedHandler}
-                    src="${this._currentFile}">
+                    src="${this._playerSourceSelector}">
                         Your browser does not support the
                         <code>audio</code> element.
                 </audio>
             
                 <div @click=${this._homeClickHandler} class="server">${this._server}</div>
                 ${this._parents.map((folder, idx) => html`
-                    <div class="parent">
-                        <div class="name" @click=${this._parentClickHandler} name=${idx}>${folder.basename}</div>
+                    <div class="parent" name=${idx}>
+                        <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
+                        <!--
                         <div class="cached">⬤</div>
                         <div class="pinned">📌</div>
+                        -->
                     </div>
                 `)}
             </div>
             <div class="content" @click=${this._contentClickHandler}>
                 ${this._content.map((entry, idx) => html`
-                    <div class="entry ${entry.type}">
-                        <div class="name ${this._fileClass(entry)}" name=${idx}>${entry.basename}</div>
+                    <div name=${idx} class="entry ${entry.type}">
+                        <div class="name ${this._fileClass(entry)}">${entry.basename}</div>
                         <div class="cached ${entry.cached}">⬤</div>
                         <div class="pinned ${entry.pinned}">📌</div>
                     </div>
@@ -123,12 +136,13 @@ class MyView1 extends connect(store)(PageViewElement) {
     constructor() {
         super()
         store.dispatch(setServer('http://localhost/'))
-        this._currentFile = ''
+        this._playerSourceSelector = ''
     }
     static get properties() {
         return {
             _path: { type: String },
             _currentFile: { type: String },
+            _playerSourceSelector: { type: String },
             _content: { type: Array },
             _parents: { type: Array },
             _isPlaying: { type: Boolean }
@@ -139,6 +153,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._parents = parentsSelector(state)
         this._server = serverSelector(state)
         this._currentFile = currentFileSelector(state)
+        this._playerSourceSelector = playerSourceSelector(state)
         this._path = pathSelector(state)
         this._isPlaying = isPlayingSelector(state)
     }
@@ -156,15 +171,23 @@ class MyView1 extends connect(store)(PageViewElement) {
         return (this._currentFile.search(entry.filename) >= 0) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
-        return Number(evt.composedPath()[0].getAttribute('name'))
+        return Number(evt.composedPath()[1].getAttribute('name'))
+    }
+    _getClassListFromEvt(evt){
+        return evt.composedPath()[0].classList
     }
     _parentClickHandler(evt){
         const entry = this._parents[this._getIdxFromEvt(evt)]
         store.dispatch(selectFolder(entry.filename))
     }
     _contentClickHandler(evt) {
+        console.log('_contentClickHandler', evt.composedPath()[0].className, '|', evt.composedPath()[1].className)
         const entry = this._content[this._getIdxFromEvt(evt)]
-        switch(entry.type) {
+        const classes = this._getClassListFromEvt(evt)
+        if(classes.contains('pinned') || classes.contains('cached')) {
+            store.dispatch(pin(this._server + this._path + entry.filename))
+        }
+        else switch(entry.type) {
             case 'file': 
                 store.dispatch(setCurrentFile(this._server + this._path + entry.filename))
                 break
