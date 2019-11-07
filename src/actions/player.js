@@ -42,12 +42,20 @@ export const reload = () => (dispatch, getState) => {
 function isFolder(url) {
     return url.slice(-1) == '/'
 }
-export const pin = (url) => async function(dispatch, getState) {
-    if(isFolder(url)) return console.error('Pinning directories not implemented')
-    let pinned = await isPinned(url)
-    await updateCache(url, {pinned:!pinned})
-    await updateEntryProp(url, 'pinned', !pinned)
+export const pin = (url, pinned) => async function(dispatch) {
+    if(isFolder(url)) pinFolder(url, pinned, dispatch)
+    else pinFile(url, pinned, dispatch)
+}
+async function pinFile(url, pinned, dispatch){
+    await updateCache(url, {pinned})
+    await updateEntryProp(url, 'pinned', pinned)
     dispatch(refresh(url))    
+}
+async function pinFolder(url, pinned, dispatch) {
+    //const parentDir = getParentDir(url)
+    const content = await get(url)
+    console.log('pinFolder', content, pinned)
+    content.map(entry => dispatch(pin(url + entry.filename, pinned)))
 }
 async function get(url, discardCache) {
     console.log('get', url)
@@ -59,7 +67,7 @@ async function get(url, discardCache) {
         if(!content) throw('no content')
         console.log('cache', url, content)
     } catch(e) {
-        console.log('catch', url)
+        console.log('catch', url, e)
         if(isFolder(url)) {
             console.log('fetch dir', url)
             let response = await fetch(url, { method: 'GET' })
@@ -69,18 +77,22 @@ async function get(url, discardCache) {
             content = await fetchBlob(url)
             await updateEntryProp(url, 'cached', true)
         }
-        content && updateCache(url, {content, cached: true})
+        if(content) await updateCache(url, {content, cached: true})
     }
     return content
 }
 async function updateEntryProp(url, prop, value) {
+    console.log('updateEntryProp', url, prop, value)
     const parentDir = getParentDir(url)
-    const content = await get(parentDir)
+    let content = await get(parentDir)
     const filename = url.split('/').pop()
-    const entry = content.find(candidate => candidate.filename == filename)
-    entry[prop] = value
-    await updateCache(parentDir, {content})
-    console.log('updateEntryProp done')
+    return db.transaction('rw!', db.cache, async () => {
+        const cacheItem = await db.cache.get(parentDir)
+        const entry = cacheItem.content.find(candidate => candidate.filename == filename)
+        entry[prop] = value
+        console.log('updateEntryProp put', cacheItem)
+        await db.cache.put(cacheItem)
+    })
 }
 const getParentDir = (url) => {
     const arr = url.replace(/\/$/, '').split('/')
@@ -111,28 +123,35 @@ async function fetchBlob(url) {
         xhr.send()
     })
 }
-async function updateCache(url, obj) {
-    const item = await db.cache.get(url) || {
+const getEmptyItem = (url) => {
+    return {
         url,
         cached: false,
         pinned: false,
         created: new Date().getTime()
     }
-    Object.assign(item, obj)
-    await db.cache.put(item)
-    return item
+}
+async function updateCache(url, obj) {
+    return db.transaction('rw!', db.cache, () => {
+        return db.cache.get(url)
+        .then((item = getEmptyItem(url)) => {
+            console.log('udpateCache', item, obj)
+            return db.cache.put(Object.assign(item, obj))
+        })
+    })
 }
 async function webDavResponseToJson(url, response) {
     const text = await response.text()
     // TODO need path relative to root, not to server
-    const path = url.replace(/http[s]?:\/\/[^\/]*/,'')
+    const path = url.replace(/http[s]?:\/\/[^\/]*/,'').replace(/&amp;/g, '&')
+    console.log('path', path)
     const remove = path.split('/').join(separator)
     const parentDirRemover = getParentStringRemover(remove)
     const content = text
     .replace(/.*Parent Directory.*/,'')
     .match(/href="[^"]+/g)
     .map(entry => {
-        const filename = decodeURI(entry.slice(6))
+        const filename = decodeURI(entry.slice(6)).replace(/&amp;/g, '&')
         return {
             filename,
             basename: parentDirRemover(filename),

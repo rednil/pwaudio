@@ -24,7 +24,7 @@ const player = (state = INITIAL_STATE, action) => {
         ...state,
         path: action.path,
         parents: action.parents,
-        content: null
+        content: []
       }
     case SET_FOLDER_CONTENT:
       console.log('SET_FOLDER_CONTENT', action)

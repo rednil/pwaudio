@@ -168,7 +168,8 @@ class MyView1 extends connect(store)(PageViewElement) {
         store.dispatch(play(!this._isPlaying))
     }
     _fileClass(entry) {
-        return (this._currentFile.search(entry.filename) >= 0) ? 'playing' : ''
+        //return (this._currentFile.search(entry.filename) >= 0) ? 'playing' : ''
+        return (this._currentFile.slice(-entry.filename.length) == entry.filename) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
         return Number(evt.composedPath()[1].getAttribute('name'))
@@ -185,7 +186,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         const entry = this._content[this._getIdxFromEvt(evt)]
         const classes = this._getClassListFromEvt(evt)
         if(classes.contains('pinned') || classes.contains('cached')) {
-            store.dispatch(pin(this._server + this._path + entry.filename))
+            store.dispatch(pin(this._server + this._path + entry.filename, !entry.pinned))
         }
         else switch(entry.type) {
             case 'file': 
