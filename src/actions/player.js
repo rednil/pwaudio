@@ -1,10 +1,15 @@
 export const SELECT_FOLDER = 'SELECT_FOLDER'
-export const SET_FOLDER_CONTENT = 'SET_FOLDER_CONTENT'
+export const SET_DIRECTORY = 'SET_DIRECTORY'
 export const SELECT_FILE = 'SELECT_FILE'
 export const SET_PLAYER_SOURCE = 'SET_PLAYER_SOURCE'
 export const SET_SERVER = 'SET_SERVER'
 export const SET_PLAYING = 'SET_PLAYING'
 export const SET_CURRENT_FILE = 'SET_CURRENT_FILE'
+export const STATE_YES = 'YES'
+export const STATE_NO = 'NO'
+export const STATE_PARTIAL = 'PARTIAL'
+export const STATE_UNKNOWN = 'UNKNOWN'
+
 import Dexie from 'dexie'
 import {
     serverSelector,
@@ -19,88 +24,110 @@ const db = new Dexie('pwa-music-player')
 db.version(1).stores({
     cache: `url, created, pinned, cached`
 })
-
+/*
+if (navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().then(function(persistent) {
+        if (persistent) console.log("Storage will not be cleared except by explicit user action")
+        else console.log("Storage may be cleared by the UA under storage pressure.")
+    })
+}
+*/
 export const selectFolder = (path, discardCache) => (dispatch, getState) => {
-    console.log('selectFolder', path)
     dispatch({
         type: SELECT_FOLDER,
-        path,
-        parents: getParentLinks(path)
+        path
     })
-    get(serverSelector(getState()) + path, discardCache)
-    .then(content => dispatch({
-        type: SET_FOLDER_CONTENT,
+    getDir(serverSelector(getState()) + path, discardCache)
+    .then(dir => dispatch({
+        type: SET_DIRECTORY,
         path,
-        content
+        dir,
+        parents: getParentLinks(path, dir)
     }))
 }
 export const reload = () => (dispatch, getState) => {
-    console.log('reload')
-    dispatch(selectFolder(pathSelector(getState()), true))
+    selectFolder(pathSelector(getState()), true)(dispatch, getState)
 }
 
 function isFolder(url) {
     return url.slice(-1) == '/'
 }
-export const pin = (url, pinned) => async function(dispatch) {
-    if(isFolder(url)) pinFolder(url, pinned, dispatch)
-    else pinFile(url, pinned, dispatch)
+export const pin = (url, pinned) => async function(dispatch, getState) {
+    return _pin(url, pinned).then(() => {
+        refresh(getParentDir(url))(dispatch, getState)
+    })
 }
-async function pinFile(url, pinned, dispatch){
+async function _pin(url, pinned) {
+    return (isFolder(url) ? pinFolder(url, pinned) : pinFile(url, pinned))
+}
+async function pinFile(url, pinned){
     await updateCache(url, {pinned})
-    await updateEntryProp(url, 'pinned', pinned)
-    dispatch(refresh(url))    
+    await updateEntryProp(url, 'pinned', pinned ? STATE_YES : STATE_NO)
 }
-async function pinFolder(url, pinned, dispatch) {
-    //const parentDir = getParentDir(url)
-    const content = await get(url)
-    console.log('pinFolder', content, pinned)
-    content.map(entry => dispatch(pin(url + entry.filename, pinned)))
+async function pinFolder(url, pinned) {
+    const dir = await getDir(url)
+    return Promise.all(dir.content.map(entry => _pin(url + entry.name, pinned)))
 }
-async function get(url, discardCache) {
-    console.log('get', url)
+async function getDir(url, discardCache = false) {
+    let dir = await db.cache.get(url)
+    if(!dir || discardCache) {
+        let response = await fetch(url, { method: 'GET' })
+        dir = await handleResponse(url, response, dir)
+    }
+    return dir
+}
+async function getFile(url) {
     let content
     try{
-        if(discardCache) throw('refresh')
-        let cached = await db.cache.get(url)
+        const cached = await db.cache.get(url)
         content = cached.content
         if(!content) throw('no content')
-        console.log('cache', url, content)
     } catch(e) {
-        console.log('catch', url, e)
-        if(isFolder(url)) {
-            console.log('fetch dir', url)
-            let response = await fetch(url, { method: 'GET' })
-            content = await webDavResponseToJson(url, response)
-        }
-        else {
-            content = await fetchBlob(url)
-            await updateEntryProp(url, 'cached', true)
-        }
-        if(content) await updateCache(url, {content, cached: true})
+        content = await fetchBlob(url)
+        await updateEntryProp(url, 'cached', STATE_YES)
+        if(content) await updateCache(url, {content, cached: STATE_YES})
     }
     return content
 }
 async function updateEntryProp(url, prop, value) {
-    console.log('updateEntryProp', url, prop, value)
     const parentDir = getParentDir(url)
-    let content = await get(parentDir)
-    const filename = url.split('/').pop()
+    if(!parentDir) return
+    let dir = await getDir(parentDir)
+    if(!dir) return
+    const lastPartMatch = url.match(/[^\/]+\/?$/)
+    const filename = lastPartMatch && lastPartMatch[0]
     return db.transaction('rw!', db.cache, async () => {
-        const cacheItem = await db.cache.get(parentDir)
-        const entry = cacheItem.content.find(candidate => candidate.filename == filename)
+        const dir = await db.cache.get(parentDir)
+        const entry = dir.content.find(candidate => candidate.name == filename)
         entry[prop] = value
-        console.log('updateEntryProp put', cacheItem)
-        await db.cache.put(cacheItem)
+        const changed = fixSummary(dir, prop)
+        await db.cache.put(dir)
+        return changed ? dir[prop] : null
+    }).then(parentValue => {
+        if(parentValue != null) return updateEntryProp(parentDir, prop, parentValue)
     })
+}
+const fixSummary = (cacheItem, prop) => {
+    const before = cacheItem[prop]
+    let summary
+    for(let i=0; i<cacheItem.content.length; i++) {
+        let value = cacheItem.content[i][prop]
+        if(value == STATE_PARTIAL || (summary && (value != summary))) {
+            summary = STATE_PARTIAL
+            break
+        }
+        summary = value
+    }
+    cacheItem[prop] = summary
+    return (before != summary)
 }
 const getParentDir = (url) => {
     const arr = url.replace(/\/$/, '').split('/')
+    if(arr.length <= 3) return
     arr.pop()
     return arr.join('/') + '/'
 }
 async function fetchBlob(url) {
-    console.log('fetchBlob', url)
 	return new Promise((resolve, reject) => {
 	    var xhr = new XMLHttpRequest()
         xhr.open('GET', url, true)
@@ -108,7 +135,6 @@ async function fetchBlob(url) {
         xhr.onload = function() {
             if (this.status == 200) {
                 var blob = new Blob([this.response], { type: 'image/png' })
-                console.log('blob ready')
                 resolve(blob)
             }
             else {
@@ -126,8 +152,8 @@ async function fetchBlob(url) {
 const getEmptyItem = (url) => {
     return {
         url,
-        cached: false,
-        pinned: false,
+        cached: STATE_NO,
+        pinned: STATE_NO,
         created: new Date().getTime()
     }
 }
@@ -135,58 +161,80 @@ async function updateCache(url, obj) {
     return db.transaction('rw!', db.cache, () => {
         return db.cache.get(url)
         .then((item = getEmptyItem(url)) => {
-            console.log('udpateCache', item, obj)
             return db.cache.put(Object.assign(item, obj))
         })
     })
 }
-async function webDavResponseToJson(url, response) {
-    const text = await response.text()
+
+async function handleResponse(url, response, oldDir) {
+    console.log('response', response.headers.get('Content-Type'))
+    const isJson = response.headers.get('Content-Type').search('application/json') >= 0
+    const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     // TODO need path relative to root, not to server
     const path = url.replace(/http[s]?:\/\/[^\/]*/,'').replace(/&amp;/g, '&')
-    console.log('path', path)
     const remove = path.split('/').join(separator)
     const parentDirRemover = getParentStringRemover(remove)
-    const content = text
-    .replace(/.*Parent Directory.*/,'')
-    .match(/href="[^"]+/g)
-    .map(entry => {
-        const filename = decodeURI(entry.slice(6)).replace(/&amp;/g, '&')
-        return {
-            filename,
-            basename: parentDirRemover(filename),
-            type: entry.match(/\/$/) ? 'folder' : 'file'
-    }})
-    const files = content.filter(entry => entry.type == 'file')
+    content.map(entry => {
+        const oldEntry = oldDir && oldDir.content && oldDir.content.find(e => e.name == entry.name)
+        return Object.assign(entry, {
+            type: entry.name.match(/\/$/) ? 'Directory' : 'File',
+            basename: parentDirRemover(entry.name),
+            cached: oldEntry ? oldEntry.cached : STATE_UNKNOWN,
+            pinned: oldEntry ? oldEntry.pinned : STATE_UNKNOWN
+        })
+    })
+    const files = content.filter(entry => entry.type == 'File')
     await Promise.allSettled(files.map(entry => {
-        const fileUrl = url + entry.filename
+        const fileUrl = url + entry.name
         return Promise.all([isPinned(fileUrl), isCached(fileUrl)])
         .then(([pinned, cached]) => {
             entry.cached = cached
             entry.pinned = pinned
-            console.log('file', url+entry.filename, 'cached', cached, 'pinned' , pinned)
         })
     }))
-    console.log('cache update done')
-    return content
+    const dir = { content }
+    fixSummary(dir, 'cached')
+    fixSummary(dir, 'pinned')
+    await updateCache(url, dir)
+    return dir
+}
+
+async function prepareJsonResponse(response) {
+    const json = await response.json()
+    return json.map(name => { return {name}})
+}
+
+async function webDavResponseToJson(response) {
+    const text = await response.text()
+    return text
+    .replace(/.*Parent Directory.*/,'')
+    .match(/href="[^"]+/g)
+    .map(entry => {
+        const name = decodeURI(entry.slice(6)).replace(/&amp;/g, '&')
+        return {
+            name,
+        }
+    })
 }
 
 async function isPinned(url){
     const n = await db.cache.where('url').equals(url).and(entry => entry.pinned == true).count()
-    return n ? true : false
+    return n ? STATE_YES : STATE_NO
 }
 async function isCached(url){
     const n = await db.cache.where('url').equals(url).and(entry => entry.cached == true).count()
-    return n ? true : false
+    return n ? STATE_YES : STATE_NO
 }
 
 
-const getParentLinks = path => {
+const getParentLinks = (path, dir) => {
     const relPath = path.replace(/^\//, '').replace(/\/$/, '')
     const arr = (relPath == '') ? [] : relPath.split('/')
     return arr.map((folder, idx) => { return {
-        filename: arr.slice(0, idx+1).join('/')+'/',
-        basename: getParentStringRemover(arr.slice(0, idx).join(separator))(folder)
+        name: arr.slice(0, idx+1).join('/')+'/',
+        basename: getParentStringRemover(arr.slice(0, idx).join(separator))(folder),
+        cached: idx == arr.length-1 ? dir.cached : STATE_UNKNOWN,
+        pinned: idx == arr.length-1 ? dir.pinned : STATE_UNKNOWN
     }})
 }
 
@@ -209,8 +257,6 @@ export const play = (bool) => {
     }
 }
 
-
-
 export const setServer = (server) => (dispatch) => {
     dispatch({
         type: SET_SERVER,
@@ -221,14 +267,13 @@ export const setServer = (server) => (dispatch) => {
 
 const refresh = (url) => (dispatch, getState) => {
     if(!isFolder(url)) url = getParentDir(url)
-    console.log('check folder update required', url, folderUrlSelector(getState()))
     if(url == folderUrlSelector(getState())) {
         dispatch(selectFolder(pathSelector(getState())))
     }
 }
 
 export const setCurrentFile = (url) => (dispatch) => {
-    get(url).then(blob => {
+    getFile(url).then(blob => {
         dispatch(refresh(url))
         dispatch({
             type: SET_PLAYER_SOURCE,
@@ -246,19 +291,18 @@ const skip = (d) => () => (dispatch, getState) => {
     const parents = current.split('/')
     const filename = parents.pop()
     const parentPath = parents.join('/') + '/'
-    get(parentPath)
-    .then(content => {
-        const entries = content.filter(entry => entry.type == 'file')
-        const idx = entries.findIndex(entry => entry.filename == filename)
+    getDir(parentPath)
+    .then(dir => {
+        const entries = dir.content.filter(entry => entry.type == 'File')
+        const idx = entries.findIndex(entry => entry.name == filename)
         const newIdx = idx + d
-        if(newIdx >=0 && newIdx < entries.length) dispatch(setCurrentFile(parentPath + entries[newIdx].filename))
+        if(newIdx >=0 && newIdx < entries.length) dispatch(setCurrentFile(parentPath + entries[newIdx].name))
     })
 }
 export const next = skip(1)
 export const last = skip(-1)
 /*
 async _readdir(path){
-    console.log('_readdir', this._path)
     const response = await fetch(graphQlRoot, {
         method: 'POST',
         headers: {
@@ -268,12 +312,9 @@ async _readdir(path){
     })
     const json = await response.json()
     //
-    console.log(json.data.directory)
     this._files = json.data.directory.files
     this._folders = json.data.directory.folders
-    console.log('bulkGet', db.blobs.bulkGet, db.blobs.bulkDelete)
     this._refreshFilesMeta()
     
-    console.log('this._fileStatus', this._fileStatus)
 }
 */

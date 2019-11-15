@@ -8,7 +8,7 @@
   "repository": "Polymer/pwa-starter-kit",
   "scripts": {
     "watch": "browser-sync start --proxy localhost:8080 --open --files \"src/**/*.js\" \"index.html\"",
-    "start": "polymer serve --port 8080 | npm run watch",
+    "start": "polymer serve --port 8080 | node server/index.js | npm run watch",
     "build": "polymer build --auto-base-path && gulp prpl-server",
     "build:static": "polymer build",
     "serve": "prpl-server --root server/build",

@@ -1,6 +1,6 @@
 import {
     SELECT_FOLDER,
-    SET_FOLDER_CONTENT,
+    SET_DIRECTORY,
     SET_SERVER,
     SET_CURRENT_FILE,
     SET_PLAYING,
@@ -11,7 +11,7 @@ import { createSelector } from 'reselect'
 const INITIAL_STATE = {
   path: '',
   server: '',
-  content: [],
+  dir: null,
   parents: [],
   currentFile: '',
   isPlaying: false
@@ -23,22 +23,22 @@ const player = (state = INITIAL_STATE, action) => {
       return {
         ...state,
         path: action.path,
-        parents: action.parents,
-        content: []
+        parents: [],
+        dir: null
       }
-    case SET_FOLDER_CONTENT:
-      console.log('SET_FOLDER_CONTENT', action)
+    case SET_DIRECTORY:
       if(state.path != action.path) return state
       return {
         ...state,
-        content: action.content
+        dir: action.dir,
+        parents: action.parents
       }
     case SET_SERVER:
         return {
             ...state,
             path: '',
             server: action.server,
-            content: [],
+            dir: null,
             parents: []
         }
     case SET_CURRENT_FILE:
@@ -64,7 +64,7 @@ const player = (state = INITIAL_STATE, action) => {
 }
 
 export default player
-export const contentSelector = state => state.player.content
+export const contentSelector = state => (state.player.dir && state.player.dir.content) || []
 export const urlSelector = state => state.player.url
 export const serverSelector = state => state.player.server
 export const pathSelector = state => state.player.path

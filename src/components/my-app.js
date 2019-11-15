@@ -42,8 +42,7 @@ class MyApp extends connect(store)(LitElement) {
     return [
       css`
         :host {
-          display: block;
-          padding: 24px;
+          display: flex;
           max-width: 600px;
         }
 
@@ -66,7 +65,7 @@ class MyApp extends connect(store)(LitElement) {
 
         /* Workaround for IE11 displaying <main> as inline */
         main {
-          display: block;
+          display: flex;
         }
 
         .page {
@@ -74,7 +73,7 @@ class MyApp extends connect(store)(LitElement) {
         }
 
         .page[active] {
-          display: block;
+          display: flex;
         }
 
         footer {
@@ -95,15 +94,6 @@ class MyApp extends connect(store)(LitElement) {
   render() {
     // Anything that's related to rendering should be done in here.
     return html`
-      <header>
-        <h1>${this.appTitle}</h1>
-        <nav class="toolbar-list">
-          <a ?selected="${this._page === 'view1'}" href="/view1">View One</a>|
-          <a ?selected="${this._page === 'view2'}" href="/view2">View Two</a>|
-          <a ?selected="${this._page === 'view3'}" href="/view3">View Three</a>
-        </nav>
-      </header>
-
       <!-- Main content -->
       <main role="main" class="main-content">
         <my-view1 class="page" ?active="${this._page === 'view1'}"></my-view1>
@@ -112,10 +102,7 @@ class MyApp extends connect(store)(LitElement) {
         <my-view404 class="page" ?active="${this._page === 'view404'}"></my-view404>
       </main>
 
-      <footer>
-        <p>Made with &hearts; by the Polymer team.</p>
-      </footer>
-
+     
       <snack-bar ?active="${this._snackbarOpened}">
         You are now ${this._offline ? 'offline' : 'online'}.
       </snack-bar>

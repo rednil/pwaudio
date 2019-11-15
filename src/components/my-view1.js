@@ -11,9 +11,13 @@ import {
     reload,
     next,
     last,
-    pin
+    pin,
+    STATE_YES,
+    STATE_NO,
+    STATE_PARTIAL,
+    STATE_UNKNOWN
 } from '../actions/player.js'
-import player, { 
+import player, {
     contentSelector,
     parentsSelector,
     serverSelector,
@@ -33,45 +37,45 @@ class MyView1 extends connect(store)(PageViewElement) {
             SharedStyles,
             css`
                 .parent .name, .server {
-                font-weight: bold;
+                    font-weight: bold;
                 }
                 :host {
-                display: flex;
-                overflow: hidden;
-                flex-direction: column;
-                height: 100%;
-                font-family: system-ui;
-                    
+                    display: flex;
+                    flex-direction: column;
+                    font-family: system-ui;
                 }
                 .controls, .entry {
                     max-width: 300px;
                 }
                 .content {
                     overflow: auto;
+                    flex:1;
                 }
                 .playing {
                     color: red;
                 }
-                .folder, .file, .parent, .server {
+                .Directory, .File, .parent, .server {
                     width: 100%;
                     margin: 0.5em 0;
                     padding: 0.2em;
                     display: flex;
                     background-color: beige;
+                    cursor: pointer;
                 }
                 .entry {
                     cursor: default;
+                    position: relative;
                 }
                 .name {
                     flex: 1;
                     margin: auto;
                     cursor: pointer;
                 }
-                .entry.file:before {
+                .entry.File:before {
                     content : "🎵";
                     margin-right: 0.5em;
                 }
-                .entry.folder:before {
+                .entry.Directory:before {
                     content : "🗀";
                     margin-right: 0.5em;
                 }
@@ -83,14 +87,33 @@ class MyView1 extends connect(store)(PageViewElement) {
                     opacity: 0.3;
                     cursor: pointer;
                 }
-                .pinned.true {
+                .pinned.UNKNOWN:before, .cached.UNKNOWN:before {
+                    content: "?";
+                    position: absolute;
+                    margin-left: 0.5em;
+                    color:black;
+
+                }
+                .pinned.undefined:before, .cached.undefined:before {
+                    content: "!";
+                    position: absolute;
+                    margin-left: 0.5em;
+                    color: black;
+                }
+                .pinned.YES {
                     opacity: 1;
+                }
+                .pinned.PARTIAL {
+                    opacity: 0.5;
                 }
                 .cached {
                     color: lightgrey;
                 }
-                .cached.true {
+                .cached.YES {
                     color: green;
+                }
+                .cached.PARTIAL {
+                    color: darkseagreen;
                 }
             `
         ]
@@ -104,7 +127,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 <button @click=${() => store.dispatch(reload())}>↻</button>
                 <audio
                     autoplay
-                    @ended=${this._endedHandler}
+                    @ended=${() => store.dispatch(next())}
                     src="${this._playerSourceSelector}">
                         Your browser does not support the
                         <code>audio</code> element.
@@ -114,10 +137,10 @@ class MyView1 extends connect(store)(PageViewElement) {
                 ${this._parents.map((folder, idx) => html`
                     <div class="parent" name=${idx}>
                         <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
-                        <!--
-                        <div class="cached">⬤</div>
-                        <div class="pinned">📌</div>
-                        -->
+                        ${idx == this._parents.length-1 ? html`
+                            <div class="cached ${folder.cached}">⬤</div>
+                            <div class="pinned ${folder.pinned}">📌</div>
+                        ` : ''}
                     </div>
                 `)}
             </div>
@@ -135,7 +158,7 @@ class MyView1 extends connect(store)(PageViewElement) {
     }
     constructor() {
         super()
-        store.dispatch(setServer('http://localhost/'))
+        store.dispatch(setServer('http://192.168.1.43:3001/'))
         this._playerSourceSelector = ''
     }
     static get properties() {
@@ -168,8 +191,8 @@ class MyView1 extends connect(store)(PageViewElement) {
         store.dispatch(play(!this._isPlaying))
     }
     _fileClass(entry) {
-        //return (this._currentFile.search(entry.filename) >= 0) ? 'playing' : ''
-        return (this._currentFile.slice(-entry.filename.length) == entry.filename) ? 'playing' : ''
+        //return (this._currentFile.search(entry.name) >= 0) ? 'playing' : ''
+        return (this._currentFile.slice(-entry.name.length) == entry.name) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
         return Number(evt.composedPath()[1].getAttribute('name'))
@@ -177,23 +200,25 @@ class MyView1 extends connect(store)(PageViewElement) {
     _getClassListFromEvt(evt){
         return evt.composedPath()[0].classList
     }
+    _homeClickHandler(evt){
+        store.dispatch(selectFolder(''))
+    }
     _parentClickHandler(evt){
         const entry = this._parents[this._getIdxFromEvt(evt)]
-        store.dispatch(selectFolder(entry.filename))
+        store.dispatch(selectFolder(entry.name))
     }
     _contentClickHandler(evt) {
-        console.log('_contentClickHandler', evt.composedPath()[0].className, '|', evt.composedPath()[1].className)
         const entry = this._content[this._getIdxFromEvt(evt)]
         const classes = this._getClassListFromEvt(evt)
         if(classes.contains('pinned') || classes.contains('cached')) {
-            store.dispatch(pin(this._server + this._path + entry.filename, !entry.pinned))
+            store.dispatch(pin(this._server + this._path + entry.name, !(entry.pinned == STATE_YES)))
         }
         else switch(entry.type) {
-            case 'file': 
-                store.dispatch(setCurrentFile(this._server + this._path + entry.filename))
+            case 'File': 
+                store.dispatch(setCurrentFile(this._server + this._path + entry.name))
                 break
-            case 'folder':
-                store.dispatch(selectFolder(this._path + entry.filename))
+            case 'Directory':
+                store.dispatch(selectFolder(this._path + entry.name))
                 break
         } 
     }
