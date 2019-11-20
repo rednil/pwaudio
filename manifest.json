@@ -1,7 +1,7 @@
 {
-  "name": "My App",
-  "short_name": "My App",
-  "description": "My App description",
+  "name": "PWAudio",
+  "short_name": "PWAudio",
+  "description": "Progressive Web Audio Player",
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#3f51b5",

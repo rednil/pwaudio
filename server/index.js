@@ -1,8 +1,9 @@
 const express = require('express')
 const fs = require('fs')
 const cors = require('cors')
-const root = '/mnt/teracrypt/audio/music/modern'
-
+var argv = require('minimist')(process.argv.slice(2))
+const root = argv.v || '/fs'
+const port = argv.p || 80
 /*
 const getType = (dirent) => {
     if(dirent.isFile()) return 'File'
@@ -22,9 +23,8 @@ const getResponseObj = (dir) => {
     })
 }
 */
-const index = (req, res, next) => {
-    const path = decodeURI(req.path)
-    console.log('index', path)
+const index = (root) => (req, res, next) => {
+    const path = decodeURIComponent(req.path)
 
     if(path.slice(-1) == '/') {
         fs.readdir(root + path, {withFileTypes: true}, (err, dir) => {
@@ -41,8 +41,7 @@ const index = (req, res, next) => {
 
 const app = express()
 app.use(cors())
-app.use(express.static(root))
-app.use(index)
-const port = 3001
-
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+app.use('/fs', index(root))
+app.use('/fs', express.static(root))
+app.use(express.static('build/esm-bundled'))
+app.listen(port, () => console.log(`PWA Audio player backend listening on port ${port}!`))

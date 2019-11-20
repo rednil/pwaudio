@@ -48,11 +48,11 @@ const player = (state = INITIAL_STATE, action) => {
             //isPlaying: true
         }
     case SET_PLAYER_SOURCE:
-            return {
-                ...state,
-                playerSource: action.url,
-                isPlaying: true
-            }
+        return {
+            ...state,
+            playerSource: action.url,
+            isPlaying: true
+        }
     case SET_PLAYING:
         return {
             ...state,

@@ -24,9 +24,17 @@ import {
   updateOffline,
   updateLayout
 } from '../actions/app.js';
-
+import { 
+    downloadMissing
+} from '../actions/player.js'
 // These are the elements needed by this element.
-import './snack-bar.js';
+import './snack-bar.js'
+
+import player from '../reducers/player.js'
+
+store.addReducers({
+  player
+})
 
 class MyApp extends connect(store)(LitElement) {
   static get properties() {
@@ -117,21 +125,16 @@ class MyApp extends connect(store)(LitElement) {
   }
 
   updated(changedProps) {
-    if (changedProps.has('_page')) {
-      const pageTitle = this.appTitle + ' - ' + this._page;
-      updateMetadata({
-        title: pageTitle,
-        description: pageTitle
-        // This object also takes an image property, that points to an img src.
-      });
+    if(changedProps.has('_offline') && !this._offline) {
+        store.dispatch(downloadMissing())
     }
   }
 
   stateChanged(state) {
-    this._page = state.app.page;
-    this._offline = state.app.offline;
-    this._snackbarOpened = state.app.snackbarOpened;
+    this._page = state.app.page
+    this._offline = state.app.offline
+    this._snackbarOpened = state.app.snackbarOpened
   }
 }
 
-window.customElements.define('my-app', MyApp);
+window.customElements.define('my-app', MyApp)

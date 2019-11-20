@@ -3,6 +3,7 @@ import { PageViewElement } from './page-view-element.js'
 import { connect } from 'pwa-helpers/connect-mixin.js'
 import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
+import '@material/mwc-icon-button'
 import { 
     selectFolder, 
     setServer,
@@ -17,7 +18,7 @@ import {
     STATE_PARTIAL,
     STATE_UNKNOWN
 } from '../actions/player.js'
-import player, {
+import {
     contentSelector,
     parentsSelector,
     serverSelector,
@@ -26,10 +27,6 @@ import player, {
     isPlayingSelector,
     playerSourceSelector
 } from '../reducers/player.js'
-
-store.addReducers({
-  player
-})
 
 class MyView1 extends connect(store)(PageViewElement) {
     static get styles() {
@@ -45,7 +42,6 @@ class MyView1 extends connect(store)(PageViewElement) {
                     font-family: system-ui;
                 }
                 .controls, .entry {
-                    max-width: 300px;
                 }
                 .content {
                     overflow: auto;
@@ -53,6 +49,9 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .playing {
                     color: red;
+                }
+                .entry, .parent {
+                    box-sizing: border-box;
                 }
                 .Directory, .File, .parent, .server {
                     width: 100%;
@@ -70,44 +69,35 @@ class MyView1 extends connect(store)(PageViewElement) {
                     flex: 1;
                     margin: auto;
                     cursor: pointer;
+                    margin-right: 1em;
                 }
                 .entry.File:before {
-                    content : "🎵";
+                    content: "🎵";
                     margin-right: 0.5em;
                 }
+                .entry.error:before {
+                    content: "⚠";
+                }
                 .entry.Directory:before {
-                    content : "🗀";
+                    content : "📁";
                     margin-right: 0.5em;
                 }
                 .parent:before {
-                    content: "🗁";
+                    content: "📂";
                     margin-right: 0.5em;
                 }
                 .pinned {
                     opacity: 0.3;
                     cursor: pointer;
                 }
-                .pinned.UNKNOWN:before, .cached.UNKNOWN:before {
-                    content: "?";
-                    position: absolute;
-                    margin-left: 0.5em;
-                    color:black;
-
-                }
-                .pinned.undefined:before, .cached.undefined:before {
-                    content: "!";
-                    position: absolute;
-                    margin-left: 0.5em;
-                    color: black;
-                }
                 .pinned.YES {
                     opacity: 1;
                 }
                 .pinned.PARTIAL {
-                    opacity: 0.5;
+                    opacity: 0.6;
                 }
                 .cached {
-                    color: lightgrey;
+                    color: beige;
                 }
                 .cached.YES {
                     color: green;
@@ -115,16 +105,26 @@ class MyView1 extends connect(store)(PageViewElement) {
                 .cached.PARTIAL {
                     color: darkseagreen;
                 }
+                .buttons {
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .button:last-child {
+                    margin-right: 0;
+                }
             `
         ]
     }
     render() {
         return html`
             <div class="controls">
-                <button @click=${() => store.dispatch(last())}>⏮</button>
-                <button @click=${this._togglePlaying}>${this._isPlaying ? "⏸" : "▶️"}</button>
-                <button @click=${() => store.dispatch(next())}>⏭</button>
-                <button @click=${() => store.dispatch(reload())}>↻</button>
+                <div class="buttons">
+                    <mwc-icon-button raised icon="home" @click=${this._homeClickHandler}></mwc-icon-button>
+                    <mwc-icon-button raised icon="skip_previous" @click=${() => store.dispatch(last())}></mwc-icon-button>
+                    <mwc-icon-button raised icon="${this._isPlaying ? "pause" : "play_arrow"}" @click=${this._togglePlaying}></mwc-icon-button>
+                    <mwc-icon-button raised icon="skip_next" @click=${() => store.dispatch(next())}></mwc-icon-button>
+                    <mwc-icon-button raised icon="refresh" @click=${() => store.dispatch(reload())}></mwc-icon-button>
+                </div>
                 <audio
                     autoplay
                     @ended=${() => store.dispatch(next())}
@@ -132,8 +132,6 @@ class MyView1 extends connect(store)(PageViewElement) {
                         Your browser does not support the
                         <code>audio</code> element.
                 </audio>
-            
-                <div @click=${this._homeClickHandler} class="server">${this._server}</div>
                 ${this._parents.map((folder, idx) => html`
                     <div class="parent" name=${idx}>
                         <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
@@ -146,7 +144,7 @@ class MyView1 extends connect(store)(PageViewElement) {
             </div>
             <div class="content" @click=${this._contentClickHandler}>
                 ${this._content.map((entry, idx) => html`
-                    <div name=${idx} class="entry ${entry.type}">
+                    <div name=${idx} class="entry ${entry.type} ${entry.error ? 'error' : ''}">
                         <div class="name ${this._fileClass(entry)}">${entry.basename}</div>
                         <div class="cached ${entry.cached}">⬤</div>
                         <div class="pinned ${entry.pinned}">📌</div>
@@ -158,7 +156,9 @@ class MyView1 extends connect(store)(PageViewElement) {
     }
     constructor() {
         super()
-        store.dispatch(setServer('http://192.168.1.43:3001/'))
+        //store.dispatch(setServer('http://192.168.1.43:3001/fs/Walter Moers/'))
+        //store.dispatch(setServer('http://audio.chr.ddnss.de/media/'))
+        store.dispatch(setServer((window.location.hostname == 'localhost') ? 'http://localhost:3001/fs/' : '/fs/'))
         this._playerSourceSelector = ''
     }
     static get properties() {
