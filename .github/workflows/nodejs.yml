@@ -41,3 +41,4 @@ jobs:
         docker push $IMAGE_ID:$VERSION
       env:
         CI: true
+        IMAGE_NAME: server
