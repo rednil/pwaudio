@@ -40,6 +40,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     display: flex;
                     flex-direction: column;
                     font-family: system-ui;
+                    width: 100%;
                 }
                 .controls, .entry {
                 }

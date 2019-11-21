@@ -51,7 +51,9 @@ class MyApp extends connect(store)(LitElement) {
       css`
         :host {
           display: flex;
-          max-width: 600px;
+          width: 100%;
+          max-width: 800px;
+          margin: auto;
         }
 
         header {
@@ -74,6 +76,7 @@ class MyApp extends connect(store)(LitElement) {
         /* Workaround for IE11 displaying <main> as inline */
         main {
           display: flex;
+          width: 100%;
         }
 
         .page {
