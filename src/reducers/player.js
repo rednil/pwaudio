@@ -64,6 +64,7 @@ const player = (state = INITIAL_STATE, action) => {
 }
 
 export default player
+export const lastPlayedSelector = state => state.player.dir && state.player.dir.lastPlayed
 export const contentSelector = state => (state.player.dir && state.player.dir.content) || []
 export const urlSelector = state => state.player.url
 export const serverSelector = state => state.player.server

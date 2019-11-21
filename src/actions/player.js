@@ -86,15 +86,17 @@ export const downloadMissing = () => async function(dispatch, getState) {
     }
 }
 
-function isFolder(url) {
-    return url.slice(-1) == '/'
+const isFolder = (url) => {
+    return url && url.slice(-1) == '/'
+}
+const isFile = (url) => {
+    return url && url.slice(-1) != '/'
 }
 export const pin = (url, pinned) => async function(dispatch, getState) {
     if(pinned === true) pinned = STATE_YES
     if(pinned === false) pinned = STATE_NO
     return _pin(url, pinned).then(() => {
-        console.log('refresh')
-        refresh(getParentDir(url))(dispatch, getState)
+        refresh(getParentUrl(url))(dispatch, getState)
         dispatch(downloadMissing())
     })
 }
@@ -104,7 +106,6 @@ async function _pin(url, pinned) {
 async function pinFile(url, pinned){
     await updateCache(url, { pinned, type: TYPE_FILE })
     await updateEntryProp(url, 'pinned', pinned).then(() => {
-        console.log('pinned', url)
     })
 }
 async function pinFolder(url, pinned) {
@@ -132,7 +133,7 @@ async function getFile(url) {
             await updateEntryProp(url, 'cached', STATE_YES)
         }
         catch(error) {
-            console.log('getFile error', error, '=> removing cache entry')
+            console.error('getFile error', error, '=> removing cache entry')
             if(error.status == 404 && cached) await db.cache.delete(url)
             await updateEntryProp(url, 'error', 404, true)
         }
@@ -144,18 +145,20 @@ async function getFile(url) {
     })
     return content
 }
-async function updateEntryProp(url, prop, value, dontPropagate) {
-    const parentDir = getParentDir(url)
-    if(!parentDir) return
+const getBasePath = (url) => {
     const lastPartMatch = url.match(/[^\/]+\/?$/)
-    const filename = lastPartMatch && lastPartMatch[0]
+    return lastPartMatch && lastPartMatch[0]
+}
+async function updateEntryProp(url, prop, value, dontPropagate) {
+    const parentDir = getParentUrl(url)
+    if(!parentDir) return
+    const filename = getBasePath(url)
     return db.transaction('rw!', db.cache, async () => {
         const dir = await getDir(parentDir)
         const entry = dir.content.find(candidate => candidate.name == filename)
         entry[prop] = value
         const changed = fixSummary(dir, prop)
         await db.cache.put(dir)
-        console.log('updateEntryProp', url, prop, value)
         return (!dontPropagate && changed) ? dir[prop] : null
     }).then(parentValue => {
         if(parentValue != null) return updateEntryProp(parentDir, prop, parentValue)
@@ -175,9 +178,9 @@ const fixSummary = (cacheItem, prop) => {
     cacheItem[prop] = summary
     return (before != summary)
 }
-const getParentDir = (url) => {
+const getParentUrl = (url) => {
     const arr = url.replace(/\/$/, '').split('/')
-    if(arr.length <= 3) return
+    if(arr.length <= 4) return
     arr.pop()
     return arr.join('/') + '/'
 }
@@ -221,7 +224,6 @@ async function updateCache(url, obj) {
 }
 
 async function handleResponse(url, response, oldDir) {
-    console.log('response', response.headers.get('Content-Type'))
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     // TODO need path relative to root, not to server
@@ -312,10 +314,33 @@ function removeStrings(from, stringsToRemove) {
     return from.replace(/^[ -]*/,'')
 }
 
-export const play = (bool) => {
-    return {
+export const play = (bool) => async function (dispatch, getState) {
+    if(bool) {
+        const folderUrl = folderUrlSelector(getState())
+        const currentFile = currentFileSelector(getState())
+        if(!(currentFile && (currentFile.search(folderUrl) == 0))) {
+            const file = await getLastPlayedOrFirst(folderUrl)
+            return dispatch(setCurrentFile(file))
+        }
+    }
+    dispatch({
         type: SET_PLAYING,
         bool
+    })
+}
+
+async function getLastPlayedOrFirst(url) {
+    const dir = await getDir(url)
+    let file = dir.lastPlayed
+    let target
+    if(isFile(file)) target = url + file
+    else if(isFolder(file)) target = await getLastPlayedOrFirst(url + file)
+    if(target) return target
+    for(let i=0; i<dir.content.length; i++) {
+        file = dir.content[i].name
+        if(isFile(file)) target = url + file 
+        else target = await getLastPlayedOrFirst(url + file)
+        if(target) return target
     }
 }
 
@@ -328,13 +353,20 @@ export const setServer = (server) => (dispatch) => {
 }
 
 const refresh = (url) => (dispatch, getState) => {
-    if(!isFolder(url)) url = getParentDir(url)
-    if(url == folderUrlSelector(getState())) {
+    if(!isFolder(url)) url = getParentUrl(url)
+    if(url.search(folderUrlSelector(getState())) == 0) {
         setDirectory(pathSelector(getState()))(dispatch, getState)
     }
 }
 
 export const setCurrentFile = (url) => (dispatch) => {
+    dispatch({
+        type: SET_CURRENT_FILE,
+        url
+    })
+    rememberLastPlayed(url).then(() => {
+        dispatch(refresh(url))
+    })
     getFile(url).then(blob => {
         dispatch(refresh(url))
         dispatch({
@@ -343,10 +375,18 @@ export const setCurrentFile = (url) => (dispatch) => {
         })
         dispatch(downloadMissing())
     })
-    dispatch({
-        type: SET_CURRENT_FILE,
-        url
-    })
+    
+    
+}
+async function rememberLastPlayed (url) {
+    const parentUrl = getParentUrl(url)
+    if(!parentUrl) return
+    const lastPlayed = getBasePath(url)
+    const parentDir = await db.cache.get(parentUrl)
+    if(parentDir.lastPlayed != lastPlayed) {
+        await updateCache(parentUrl, {lastPlayed})
+        await rememberLastPlayed(parentUrl)
+    }
 }
 const getNeighbour = async function (url, d) {
     const parents = url.split('/')

@@ -25,7 +25,8 @@ import {
     currentFileSelector,
     pathSelector,
     isPlayingSelector,
-    playerSourceSelector
+    playerSourceSelector,
+    lastPlayedSelector
 } from '../reducers/player.js'
 
 class MyView1 extends connect(store)(PageViewElement) {
@@ -51,20 +52,19 @@ class MyView1 extends connect(store)(PageViewElement) {
                 .playing {
                     color: red;
                 }
-                .entry, .parent {
-                    box-sizing: border-box;
-                }
-                .Directory, .File, .parent, .server {
-                    width: 100%;
-                    margin: 0.5em 0;
-                    padding: 0.2em;
-                    display: flex;
-                    background-color: beige;
-                    cursor: pointer;
+                .entry.parent {
+                    background-color: #dddddd;
                 }
                 .entry {
+                    box-sizing: border-box;
                     cursor: default;
                     position: relative;
+                    margin: 0.2em 0;
+                    padding: 0.5em;
+                    width: 100%;
+                    display: flex;
+                    background-color: #eeeeee;
+                    cursor: pointer;
                 }
                 .name {
                     flex: 1;
@@ -134,7 +134,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                         <code>audio</code> element.
                 </audio>
                 ${this._parents.map((folder, idx) => html`
-                    <div class="parent" name=${idx}>
+                    <div class="entry parent" name=${idx}>
                         <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
                         ${idx == this._parents.length-1 ? html`
                             <div class="cached ${folder.cached}">⬤</div>
@@ -164,6 +164,7 @@ class MyView1 extends connect(store)(PageViewElement) {
     }
     static get properties() {
         return {
+            _lastPlayed: { type: String },
             _path: { type: String },
             _currentFile: { type: String },
             _playerSourceSelector: { type: String },
@@ -173,6 +174,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         }
     }
     stateChanged(state) {
+        this._lastPlayed = lastPlayedSelector(state)
         this._content = contentSelector(state)
         this._parents = parentsSelector(state)
         this._server = serverSelector(state)
@@ -184,6 +186,10 @@ class MyView1 extends connect(store)(PageViewElement) {
     updated(){
         if(this._isPlaying) this._getAudioNode().play()
         else this._getAudioNode().pause()
+        if(this._lastPlayed) this.shadowRoot.querySelector('.playing').scrollIntoView({
+            //behavior: 'smooth',
+            block: 'center'
+        })
     }
     _getAudioNode() {
         return this.shadowRoot.querySelector('audio')
@@ -192,8 +198,9 @@ class MyView1 extends connect(store)(PageViewElement) {
         store.dispatch(play(!this._isPlaying))
     }
     _fileClass(entry) {
+        //console.log('fileClass', this._lastPlayed, entry.name)
         //return (this._currentFile.search(entry.name) >= 0) ? 'playing' : ''
-        return (this._currentFile.slice(-entry.name.length) == entry.name) ? 'playing' : ''
+        return (this._lastPlayed == entry.name) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
         return Number(evt.composedPath()[1].getAttribute('name'))

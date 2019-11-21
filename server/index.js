@@ -25,7 +25,6 @@ const getResponseObj = (dir) => {
 */
 const index = (root) => (req, res, next) => {
     const path = decodeURIComponent(req.path)
-
     if(path.slice(-1) == '/') {
         fs.readdir(root + path, {withFileTypes: true}, (err, dir) => {
             if(!err) {

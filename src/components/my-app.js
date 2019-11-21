@@ -53,7 +53,7 @@ class MyApp extends connect(store)(LitElement) {
           display: flex;
           width: 100%;
           max-width: 800px;
-          margin: auto;
+          margin: 0 auto;
         }
 
         header {
