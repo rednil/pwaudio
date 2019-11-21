@@ -227,8 +227,9 @@ async function handleResponse(url, response, oldDir) {
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     // TODO need path relative to root, not to server
-    const path = url.replace(/http[s]?:\/\/[^\/]*/,'').replace(/&amp;/g, '&')
+    const path = url.replace(/http[s]?:\/\/[^\/]*\/[^\/]*/,'').replace(/&amp;/g, '&')
     const remove = path.split('/').join(separator)
+    console.log('remove', path, remove)
     const parentDirRemover = getParentStringRemover(remove)
     content.map(entry => {
         const oldEntry = oldDir && oldDir.content && oldDir.content.find(e => e.name == entry.name)
@@ -375,8 +376,6 @@ export const setCurrentFile = (url) => (dispatch) => {
         })
         dispatch(downloadMissing())
     })
-    
-    
 }
 async function rememberLastPlayed (url) {
     const parentUrl = getParentUrl(url)
@@ -385,8 +384,8 @@ async function rememberLastPlayed (url) {
     const parentDir = await db.cache.get(parentUrl)
     if(parentDir.lastPlayed != lastPlayed) {
         await updateCache(parentUrl, {lastPlayed})
-        await rememberLastPlayed(parentUrl)
     }
+    await rememberLastPlayed(parentUrl)
 }
 const getNeighbour = async function (url, d) {
     const parents = url.split('/')

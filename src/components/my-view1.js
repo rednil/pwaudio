@@ -99,6 +99,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .cached {
                     color: beige;
+                    margin-right: 0.5em;
                 }
                 .cached.YES {
                     color: green;
