@@ -13,21 +13,25 @@ export const UPDATE_OFFLINE = 'UPDATE_OFFLINE';
 export const OPEN_SNACKBAR = 'OPEN_SNACKBAR';
 export const CLOSE_SNACKBAR = 'CLOSE_SNACKBAR';
 
+import { selectFolder } from './player.js'
+
 export const navigate = (path) => (dispatch) => {
   // Extract the page name from path.
-  const page = path === '/' ? 'view1' : path.slice(1);
-
+  //if(path == '/') return window.location.replace(window.location.href + 'player')
+  const page = path === '/' ? 'player' : path.slice(1);
   // Any other info you might want to extract from the path (like page type),
   // you can do here
-  dispatch(loadPage(page));
+  dispatch(loadPage(page))
 };
 
 const loadPage = (page) => (dispatch) => {
   switch(page) {
-    case 'view1':
+    case 'player':
       import('../components/my-view1.js').then((module) => {
         // Put code in here that you want to run every time when
         // navigating to view1 after my-view1.js is loaded.
+        //console.log('hash', decodeURIComponent(window.location.hash))
+        dispatch(selectFolder(decodeURIComponent(window.location.hash.slice(1))))
       });
       break;
     case 'view2':

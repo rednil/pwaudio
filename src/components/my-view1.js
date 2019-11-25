@@ -59,8 +59,11 @@ class MyView1 extends connect(store)(PageViewElement) {
                     box-sizing: border-box;
                     cursor: default;
                     position: relative;
+                    
                     margin: 0.2em 0;
+                    /*
                     padding: 0.5em;
+                    */
                     width: 100%;
                     display: flex;
                     background-color: #eeeeee;
@@ -68,9 +71,8 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .name {
                     flex: 1;
-                    margin: auto;
+                    margin: 0.5em 0;
                     cursor: pointer;
-                    margin-right: 1em;
                 }
                 .entry.File:before {
                     content: "🎵";
@@ -81,13 +83,14 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .entry.Directory:before {
                     content : "📁";
-                    margin-right: 0.5em;
+                    margin: 0.5em;
                 }
                 .parent:before {
                     content: "📂";
-                    margin-right: 0.5em;
+                    margin: 0.5em;
                 }
                 .pinned {
+                    margin: 0.5em;
                     opacity: 0.3;
                     cursor: pointer;
                 }
@@ -99,7 +102,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .cached {
                     color: beige;
-                    margin-right: 0.5em;
+                    margin: 0.5em;
                 }
                 .cached.YES {
                     color: green;
@@ -160,7 +163,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         super()
         //store.dispatch(setServer('http://192.168.1.43:3001/fs/Walter Moers/'))
         //store.dispatch(setServer('http://audio.chr.ddnss.de/media/'))
-        store.dispatch(setServer((window.location.hostname == 'localhost') ? 'http://localhost:3001/fs/' : '/fs/'))
+        store.dispatch(setServer((window.location.hostname == 'localhost') ? 'http://192.168.1.43:3001/fs/' : '/fs/'))
         this._playerSourceSelector = ''
     }
     static get properties() {
@@ -210,11 +213,17 @@ class MyView1 extends connect(store)(PageViewElement) {
         return evt.composedPath()[0].classList
     }
     _homeClickHandler(evt){
-        store.dispatch(selectFolder(''))
+        //store.dispatch(selectFolder(''))
+        window.location.hash = ''
+        window.history.go(-window.history.length)
     }
     _parentClickHandler(evt){
-        const entry = this._parents[this._getIdxFromEvt(evt)]
-        store.dispatch(selectFolder(entry.name))
+        //const entry = this._parents[this._getIdxFromEvt(evt)]
+        const dHistory = this._getIdxFromEvt(evt) - this._parents.length + 1
+        console.log('go', dHistory)
+        window.history.go(dHistory)
+        //window.location.hash = entry.name
+        //store.dispatch(selectFolder(entry.name))
     }
     _contentClickHandler(evt) {
         const entry = this._content[this._getIdxFromEvt(evt)]
@@ -227,7 +236,8 @@ class MyView1 extends connect(store)(PageViewElement) {
                 store.dispatch(setCurrentFile(this._server + this._path + entry.name))
                 break
             case 'Directory':
-                store.dispatch(selectFolder(this._path + entry.name))
+                window.location.hash += entry.name
+                //store.dispatch(selectFolder(this._path + entry.name))
                 break
         } 
     }

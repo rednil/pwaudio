@@ -345,12 +345,12 @@ async function getLastPlayedOrFirst(url) {
     }
 }
 
-export const setServer = (server) => (dispatch) => {
+export const setServer = (server, folder) => (dispatch) => {
     dispatch({
         type: SET_SERVER,
         server
     })
-    dispatch(selectFolder(''))
+    dispatch(selectFolder(folder || ''))
 }
 
 const refresh = (url) => (dispatch, getState) => {
