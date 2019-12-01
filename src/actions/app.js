@@ -13,7 +13,7 @@ export const UPDATE_OFFLINE = 'UPDATE_OFFLINE';
 export const OPEN_SNACKBAR = 'OPEN_SNACKBAR';
 export const CLOSE_SNACKBAR = 'CLOSE_SNACKBAR';
 
-import { selectFolder } from './player.js'
+import { select, setServer } from './player.js'
 
 export const navigate = (path) => (dispatch) => {
   // Extract the page name from path.
@@ -31,7 +31,9 @@ const loadPage = (page) => (dispatch) => {
         // Put code in here that you want to run every time when
         // navigating to view1 after my-view1.js is loaded.
         //console.log('hash', decodeURIComponent(window.location.hash))
-        dispatch(selectFolder(decodeURIComponent(window.location.hash.slice(1))))
+        const hash = window.location.hash.slice(1)
+        if(hash) dispatch(select(hash))
+        else dispatch(setServer((window.location.hostname == 'localhost') ? 'http://192.168.1.43:3001/fs/' : '/fs/'))
       });
       break;
     case 'view2':

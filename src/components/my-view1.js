@@ -5,7 +5,7 @@ import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
 import '@material/mwc-icon-button'
 import { 
-    selectFolder, 
+    select, 
     setServer,
     setCurrentFile,
     play,
@@ -21,9 +21,7 @@ import {
 import {
     contentSelector,
     parentsSelector,
-    serverSelector,
     currentFileSelector,
-    pathSelector,
     isPlayingSelector,
     playerSourceSelector,
     lastPlayedSelector
@@ -76,7 +74,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .entry.File:before {
                     content: "🎵";
-                    margin-right: 0.5em;
+                    margin: 0.5em;
                 }
                 .entry.error:before {
                     content: "⚠";
@@ -104,8 +102,20 @@ class MyView1 extends connect(store)(PageViewElement) {
                     color: beige;
                     margin: 0.5em;
                 }
+                @keyframes blinking{
+                    0%{     opacity: 1;    }
+                    49%{    opacity: 0.49; }
+                    50%{    opacity: 0.5; }
+                    99%{    opacity: 0.99;  }
+                    100%{   opacity: 1;    }
+                }
+                
                 .cached.YES {
                     color: green;
+                }
+                .cached.REQUESTED {
+                    color: green;
+                    animation: blinking 0.8s infinite
                 }
                 .cached.PARTIAL {
                     color: darkseagreen;
@@ -140,10 +150,8 @@ class MyView1 extends connect(store)(PageViewElement) {
                 ${this._parents.map((folder, idx) => html`
                     <div class="entry parent" name=${idx}>
                         <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
-                        ${idx == this._parents.length-1 ? html`
                             <div class="cached ${folder.cached}">⬤</div>
                             <div class="pinned ${folder.pinned}">📌</div>
-                        ` : ''}
                     </div>
                 `)}
             </div>
@@ -159,17 +167,10 @@ class MyView1 extends connect(store)(PageViewElement) {
             
         `
     }
-    constructor() {
-        super()
-        //store.dispatch(setServer('http://192.168.1.43:3001/fs/Walter Moers/'))
-        //store.dispatch(setServer('http://audio.chr.ddnss.de/media/'))
-        store.dispatch(setServer((window.location.hostname == 'localhost') ? 'http://192.168.1.43:3001/fs/' : '/fs/'))
-        this._playerSourceSelector = ''
-    }
+    
     static get properties() {
         return {
             _lastPlayed: { type: String },
-            _path: { type: String },
             _currentFile: { type: String },
             _playerSourceSelector: { type: String },
             _content: { type: Array },
@@ -181,10 +182,8 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._lastPlayed = lastPlayedSelector(state)
         this._content = contentSelector(state)
         this._parents = parentsSelector(state)
-        this._server = serverSelector(state)
         this._currentFile = currentFileSelector(state)
-        this._playerSourceSelector = playerSourceSelector(state)
-        this._path = pathSelector(state)
+        this._playerSourceSelector = playerSourceSelector(state) || ''
         this._isPlaying = isPlayingSelector(state)
     }
     updated(){
@@ -202,12 +201,11 @@ class MyView1 extends connect(store)(PageViewElement) {
         store.dispatch(play(!this._isPlaying))
     }
     _fileClass(entry) {
-        //console.log('fileClass', this._lastPlayed, entry.name)
-        //return (this._currentFile.search(entry.name) >= 0) ? 'playing' : ''
-        return (this._lastPlayed == entry.name) ? 'playing' : ''
+        return (this._lastPlayed == entry.id) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
-        return Number(evt.composedPath()[1].getAttribute('name'))
+        const idx = evt.composedPath()[1].getAttribute('name')
+        if(idx != null) return Number(idx)
     }
     _getClassListFromEvt(evt){
         return evt.composedPath()[0].classList
@@ -218,28 +216,27 @@ class MyView1 extends connect(store)(PageViewElement) {
         window.history.go(-window.history.length)
     }
     _parentClickHandler(evt){
-        //const entry = this._parents[this._getIdxFromEvt(evt)]
-        const dHistory = this._getIdxFromEvt(evt) - this._parents.length + 1
-        console.log('go', dHistory)
+        // TODO: search history
+        const idx = this._getIdxFromEvt(evt)
+        if(idx == null) return
+        const entry = this._parents[idx]
+        const dHistory = idx - this._parents.length + 1
         window.history.go(dHistory)
         //window.location.hash = entry.name
         //store.dispatch(selectFolder(entry.name))
     }
     _contentClickHandler(evt) {
-        const entry = this._content[this._getIdxFromEvt(evt)]
+        const idx = this._getIdxFromEvt(evt)
+        if(idx == null) return
+        const entry = this._content[idx]
         const classes = this._getClassListFromEvt(evt)
         if(classes.contains('pinned') || classes.contains('cached')) {
-            store.dispatch(pin(this._server + this._path + entry.name, !(entry.pinned == STATE_YES)))
+            store.dispatch(pin(entry))
         }
-        else switch(entry.type) {
-            case 'File': 
-                store.dispatch(setCurrentFile(this._server + this._path + entry.name))
-                break
-            case 'Directory':
-                window.location.hash += entry.name
-                //store.dispatch(selectFolder(this._path + entry.name))
-                break
-        } 
+        else {
+            window.location.hash = entry.id
+            //store.dispatch(select(entry.id))
+        }
     }
 }
 
