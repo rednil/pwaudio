@@ -145,6 +145,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 </audio>
                 <div class="parents" @click=${this._parentClickHandler} >
                     ${this._parents.map((folder, idx) => html`
+                    
                         <div class="entry parent" name=${idx}>
                             <div class="name" >${folder.basename}</div>
                             <div class="cached ${folder.cached}">⬤</div>
