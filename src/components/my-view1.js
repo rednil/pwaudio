@@ -4,21 +4,16 @@ import { connect } from 'pwa-helpers/connect-mixin.js'
 import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
 import '@material/mwc-icon-button'
-import { 
-    select, 
-    setServer,
-    setCurrentFile,
+import {
+    toggleCachedOnly,
     play,
     reload,
     next,
     last,
-    pin,
-    STATE_YES,
-    STATE_NO,
-    STATE_PARTIAL,
-    STATE_UNKNOWN
+    pin
 } from '../actions/player.js'
 import {
+    cachedOnlySelector,
     contentSelector,
     parentsSelector,
     currentFileSelector,
@@ -139,6 +134,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     <mwc-icon-button raised icon="${this._isPlaying ? "pause" : "play_arrow"}" @click=${this._togglePlaying}></mwc-icon-button>
                     <mwc-icon-button raised icon="skip_next" @click=${() => store.dispatch(next())}></mwc-icon-button>
                     <mwc-icon-button raised icon="refresh" @click=${() => store.dispatch(reload())}></mwc-icon-button>
+                    <mwc-icon-button raised icon="${this._cachedOnly ? 'wifi_off' : 'wifi_on'}" @click=${this._toggleCachedOnly}></mwc-icon-button>
                 </div>
                 <audio
                     autoplay
@@ -147,13 +143,15 @@ class MyView1 extends connect(store)(PageViewElement) {
                         Your browser does not support the
                         <code>audio</code> element.
                 </audio>
-                ${this._parents.map((folder, idx) => html`
-                    <div class="entry parent" name=${idx}>
-                        <div class="name" @click=${this._parentClickHandler} >${folder.basename}</div>
+                <div class="parents" @click=${this._parentClickHandler} >
+                    ${this._parents.map((folder, idx) => html`
+                        <div class="entry parent" name=${idx}>
+                            <div class="name" >${folder.basename}</div>
                             <div class="cached ${folder.cached}">⬤</div>
                             <div class="pinned ${folder.pinned}">📌</div>
-                    </div>
-                `)}
+                        </div>
+                    `)}
+                </div>
             </div>
             <div class="content" @click=${this._contentClickHandler}>
                 ${this._content.map((entry, idx) => html`
@@ -170,6 +168,7 @@ class MyView1 extends connect(store)(PageViewElement) {
     
     static get properties() {
         return {
+            _cachedOnly: { type: Boolean },
             _lastPlayed: { type: String },
             _currentFile: { type: String },
             _playerSourceSelector: { type: String },
@@ -185,6 +184,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._currentFile = currentFileSelector(state)
         this._playerSourceSelector = playerSourceSelector(state) || ''
         this._isPlaying = isPlayingSelector(state)
+        this._cachedOnly = cachedOnlySelector(state)
     }
     updated(){
         if(this._isPlaying) this._getAudioNode().play()
@@ -215,25 +215,33 @@ class MyView1 extends connect(store)(PageViewElement) {
         window.location.hash = ''
         window.history.go(-window.history.length)
     }
+    _toggleCachedOnly() {
+        store.dispatch(toggleCachedOnly())
+    }
     _parentClickHandler(evt){
         // TODO: search history
         const idx = this._getIdxFromEvt(evt)
         if(idx == null) return
         const entry = this._parents[idx]
-        const dHistory = idx - this._parents.length + 1
-        window.history.go(dHistory)
-        //window.location.hash = entry.name
-        //store.dispatch(selectFolder(entry.name))
+        if(!this._pinCacheClickHandler(evt, entry)){
+            const dHistory = idx - this._parents.length + 1
+            window.history.go(dHistory)
+            //window.location.hash = entry.name
+            //store.dispatch(selectFolder(entry.name))
+        }
+    }
+    _pinCacheClickHandler(evt, entry){
+        const classes = this._getClassListFromEvt(evt)
+        if(classes.contains('pinned') || classes.contains('cached')) {
+            store.dispatch(pin(entry))
+            return true
+        }
     }
     _contentClickHandler(evt) {
         const idx = this._getIdxFromEvt(evt)
         if(idx == null) return
         const entry = this._content[idx]
-        const classes = this._getClassListFromEvt(evt)
-        if(classes.contains('pinned') || classes.contains('cached')) {
-            store.dispatch(pin(entry))
-        }
-        else {
+        if(!this._pinCacheClickHandler(evt, entry)){
             window.location.hash = entry.id
             //store.dispatch(select(entry.id))
         }

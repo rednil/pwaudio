@@ -3,7 +3,8 @@ import {
     SET_DIRECTORY,
     SET_CURRENT_FILE,
     SET_PLAYING,
-    SET_PLAYER_SOURCE
+    SET_PLAYER_SOURCE,
+    TOGGLE_CACHED_ONLY
 } from '../actions/player.js'
 import { createSelector } from 'reselect'
 
@@ -48,6 +49,11 @@ const player = (state = INITIAL_STATE, action) => {
             ...state,
             isPlaying: action.bool
         }
+    case TOGGLE_CACHED_ONLY:
+        return {
+            ...state,
+            cachedOnly: !state.cachedOnly
+        }
     default:
       return state
   }
@@ -61,3 +67,4 @@ export const isPlayingSelector = state => state.player.isPlaying
 export const parentsSelector = state => state.player.parents
 export const folderIdSelector = state => state.player.id
 export const playerSourceSelector = state => state.player.playerSource
+export const cachedOnlySelector = state => state.player.cachedOnly

@@ -32,9 +32,13 @@ const loadPage = (page) => (dispatch) => {
         // navigating to view1 after my-view1.js is loaded.
         //console.log('hash', decodeURIComponent(window.location.hash))
         const hash = window.location.hash.slice(1)
-        if(hash) dispatch(select(hash))
-        else dispatch(setServer((window.location.hostname == 'localhost') ? 'http://192.168.1.43:3001/fs/' : '/fs/'))
-      });
+        if(hash && !isNaN(hash)) dispatch(select(Number(hash)))
+        else {
+            const {protocol, hostname, port} = window.location
+            const server = (port == 3000) ? `${protocol}//${hostname}:3001` : ''
+            dispatch(setServer(server + '/fs/'))
+        }
+      })
       break;
     case 'view2':
       import('../components/my-view2.js');

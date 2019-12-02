@@ -11,6 +11,7 @@ export const STATE_PARTIAL = 'PARTIAL'
 export const STATE_UNKNOWN = 'UNKNOWN'
 export const STATE_ERROR = 'ERROR'
 export const STATE_REQUESTED = 'REQUESTED'
+export const TOGGLE_CACHED_ONLY = 'TOGGLE_CACHED_ONLY'
 const TYPE_FILE = 'File'
 const TYPE_DIRECTORY = 'Directory'
 const preload = 2
@@ -19,14 +20,14 @@ import Dexie from 'dexie'
 import {
     currentFileSelector,
     folderIdSelector,
-    lastPlayedSelector
+    cachedOnlySelector
 } from '../reducers/player.js'
 
 const separator = ' - '
 
 const db = new Dexie('pwa-music-player')
 db.version(1).stores({
-    tree: '++id, name, parent',
+    tree: '++id, name, parent, cached, type, [cached+type]',
     file: 'id, blob'
 })
 /*
@@ -37,9 +38,12 @@ if (navigator.storage && navigator.storage.persist){
     })
 }
 */
+const cachedOnlyFilter = (cachedOnly) => {
+    if (cachedOnly) return (entry) => entry.cached && (entry.cached != STATE_NO)
+}
 
-const setDirectory = (id, discardCache) => async function(dispatch) {
-    const dir = await getDir(id, discardCache)
+const setDirectory = (id, discardCache) => async function(dispatch, getState) {
+    const dir = await getDir(id, discardCache, cachedOnlyFilter(cachedOnlySelector(getState())))
     const parents = await getParents(id, true)
     dispatch({
         type: SET_DIRECTORY,
@@ -48,81 +52,69 @@ const setDirectory = (id, discardCache) => async function(dispatch) {
         parents
     })
 }
-export const select = (entryOrId) => async function(dispatch) {
-    const {id, entry} = await getEntryAndId(entryOrId)
-    if(entry.type == TYPE_DIRECTORY) {
-        dispatch({
-            type: SELECT_FOLDER,
-            id
-        })
-        dispatch(setDirectory(id))
-    }
-    else dispatch(setCurrentFile(id))
+export const toggleCachedOnly = () => (dispatch, getState) => {
+    dispatch({
+        type: TOGGLE_CACHED_ONLY
+    })
+    dispatch(refresh())
 }
-
+export const select = (entryOrId) => {
+    return async function(dispatch) {
+        const {id, entry} = await getEntryAndId(entryOrId)
+        if(!entry) return window.location.hash = ''
+        if(isFolder(entry)) {
+            dispatch({
+                type: SELECT_FOLDER,
+                id
+            })
+            dispatch(setDirectory(id))
+        }
+        else dispatch(setCurrentFile(id))
+    }
+}
 export const reload = () => (dispatch, getState) => {
-    setDirectory(pathSelector(getState()), true)(dispatch, getState)
+    setDirectory(folderIdSelector(getState()), true)(dispatch, getState)
 }
 export const downloadMissing = () => async function(dispatch, getState) {
-    /*
     if(getState().app.offline) return
     let missing
-    let cacheEntry
     const current = currentFileSelector(getState())
     if(current) {
         for(let i=1; i<preload+1; i++) {
             const next = await getNeighbour(current, i)
-            if(next && !next.error) {
-                cacheEntry = await db.cache.get(next.url)
-                if(!cacheEntry || cacheEntry.cached != STATE_YES) {
-                    missing = next.url
-                    break
-                }
-            }
+            if(next && next.cached != STATE_YES) missing = next
         }
     }
     if(!missing) {
-        cacheEntry = await db.cache.where({
-            pinned: STATE_YES,
-            cached: STATE_NO,
+        missing = await db.tree.where({
+            cached: STATE_REQUESTED,
             type: TYPE_FILE
         }).first()
-        missing = cacheEntry && cacheEntry.url
     }
     if(missing) {
-        await getBlob(missing)
-        dispatch(refresh(missing))
+        await getBlob(missing.id, dispatch)
         dispatch(downloadMissing())
     }
-    */
 }
-
-const isFolder = (url) => {
-    return url && url.slice(-1) == '/'
-}
-const isFile = (url) => {
-    return url && url.slice(-1) != '/'
-}
-export const pin = (entryOrId) => async function(dispatch, getState) {
+const isFolder = (entry) => entry.type == TYPE_DIRECTORY
+const isFile = (entry) => entry.type == TYPE_FILE
+export const pin = (entryOrId) => async function(dispatch) {
     const {id, entry} = await getEntryAndId(entryOrId)
     const value = (entry.pinned == STATE_YES) ? STATE_NO : STATE_YES
     let changed = false
-    if(entry.type == TYPE_FILE) {
-        changed = await pinFile(entry, value)
-        await fixSummary(entry.parent)
-        changed = true
+    if(isFile(entry)) {
+        await pinFile(entry, value)
     }
     else {
         if(value == STATE_YES) {
             const n = await countChildren(id)
         }
-        changed = await pinFolder(entry, value)
+        await pinFolder(entry, value)
     }
-    if(changed) await fixSummary(entry.parent)
+    await fixSummary(entry.parent)
     dispatch(refresh())
+    dispatch(downloadMissing())
 }
-
-
 async function pinFile(entry, value){
     entry.pinned = value
     if(value == STATE_YES){
@@ -131,15 +123,10 @@ async function pinFile(entry, value){
     else if(entry.cached == STATE_REQUESTED) entry.cached = STATE_NO
     await db.tree.put(entry)
 }
-async function cacheFile(entry) {
-    await updateEntry(entry, {
-        cached: toggleCached(entry.cached),
-    })
-}
 async function pinFolder(entry, value) {
     const children = await getDir(entry.id)
     await Promise.all(children.map(child => {
-        return (child.type == TYPE_DIRECTORY) ? pinFolder(child, value) : pinFile(child, value)
+        return (isFolder(child)) ? pinFolder(child, value) : pinFile(child, value)
     }))
     const changed = summary.cached(entry, children)
     entry.pinned = value
@@ -148,20 +135,20 @@ async function pinFolder(entry, value) {
 }
 async function countChildren(id) {
     const dir = await getDir(id)
-    const files = dir.filter(entry => entry.type == TYPE_FILE)
-    const folders = dir.filter(entry => entry.type == TYPE_DIRECTORY)
+    const files = dir.filter(isFile)
+    const folders = dir.filter(isFolder)
     let n = files.length
     for(let i=0; i<folders.length; i++) {
         n = n + await countChildren(folders[i].id)
     }
     return n
 }
-
-async function getDir(id, discardCache = false) {
+async function getDir(id, discardCache = false, filter) {
     let dir = await db.tree.where({parent: id}).toArray()
     if(!dir || !dir.length || discardCache) {
         dir = await fetchDir(id, dir)
     }
+    if(filter) dir=dir.filter(filter)
     return dir
 }
 async function fetchDir(id, oldDir) {
@@ -192,10 +179,8 @@ async function fetchDir(id, oldDir) {
     })
     await db.transaction('rw!', db.tree, () => Promise.all(newEntries.map(entry => db.tree.put(entry))))
     const dir = newEntries.concat(validOldEntries)
-    //fixSummary(id, dir)
     return dir
 }
-const sortDir = (dir) => dir
 async function getParents(id, includeMyself, includeRoot) {
     const parents = []
     while(id) {
@@ -233,16 +218,13 @@ async function getBlob(id, dispatch) {
     }
     return blob
 }
-const getBasePath = (url) => {
-    const lastPartMatch = url.match(/[^\/]+\/?$/)
-    return lastPartMatch && lastPartMatch[0]
-}
 async function updateEntry(id, props, dispatch) {
     return db.transaction('rw!', db.tree, async () => {
         const entry = await db.tree.get(id)
         Object.assign(entry, props)
         await db.tree.put(entry)
-        if(dispatch) dispatch(refresh(id))
+        await fixSummary(entry.parent)
+        if(dispatch) dispatch(refresh())
     })
 }
 
@@ -276,15 +258,17 @@ async function getEntryAndId (entryOrId) {
     }
 }
 const fixSummary = async (entryOrId) => {
+    // be null tolerant to prevent checks everywhere else
+    if(!entryOrId) return
     const {entry, id} = await getEntryAndId(entryOrId)
     const children = await getDir(id)
     const cachedChanged = summary.cached(entry, children)
     const pinnedChanged = summary.pinned(entry, children)
-    if(entry.parent && (cachedChanged || pinnedChanged)){
+    await db.tree.put(entry)
+    if(cachedChanged || pinnedChanged){
         await fixSummary(entry.parent)
     }
 }
-
 async function fetchBlob(url) {
 	return new Promise((resolve, reject) => {
 	    var xhr = new XMLHttpRequest()
@@ -307,12 +291,10 @@ async function fetchBlob(url) {
         xhr.send()
     })
 }
-
 async function prepareJsonResponse(response) {
     const json = await response.json()
     return json.map(name => { return {name}})
 }
-
 async function webDavResponseToJson(response) {
     const text = await response.text()
     return text
@@ -325,19 +307,16 @@ async function webDavResponseToJson(response) {
         }
     })
 }
-
 function getParentStringRemover(parentString = '') {
     const stringsToRemove = parentString.split(separator)
     return (from) => removeStrings(from, stringsToRemove).replace(/\/$/, '')
 }
-  
 function removeStrings(from, stringsToRemove) {
     stringsToRemove.forEach(stringToRemove => {
         from = from.replace(stringToRemove, '')
     })
     return from.replace(/^[ -]*/,'')
 }
-
 export const play = (bool) => async function (dispatch, getState) {
     if(bool) {
         const folderId = folderIdSelector(getState())
@@ -352,24 +331,22 @@ export const play = (bool) => async function (dispatch, getState) {
         bool
     })
 }
-
 async function getLastPlayedOrFirst(entryOrId) {
     const {id, entry} = await getEntryAndId(entryOrId)
     if(entry.lastPlayed) {
         const lastPlayed = await db.tree.get(entry.lastPlayed)
-        if(lastPlayed.type == TYPE_FILE) return lastPlayed
+        if(isFile(lastPlayed)) return lastPlayed
         else return await getLastPlayedOrFirst(lastPlayed)
     }
     else {
         const children = await getDir(id)
         for(let i=0; i<children.length; i++) {
             const child = children[i]
-            if(child.type == TYPE_FILE) return child
+            if(isFile(child)) return child
             else return await getLastPlayedOrFirst(child)
         }
     }
 }
-
 export const setServer = (name) => async function (dispatch) {
     const root = await db.tree.where({name}).first()
     const id = root ? root.id : await db.tree.put({
@@ -379,12 +356,10 @@ export const setServer = (name) => async function (dispatch) {
     })
     dispatch(select(id))
 }
-
 const refresh = () => async function (dispatch, getState) {
     const id = folderIdSelector(getState())
     if(id) setDirectory(id)(dispatch, getState)
 }
-
 export const setCurrentFile = (entryOrId) => async function(dispatch){
     const {id, entry} = await getEntryAndId(entryOrId)
     dispatch({
@@ -398,7 +373,7 @@ export const setCurrentFile = (entryOrId) => async function(dispatch){
         type: SET_PLAYER_SOURCE,
         url: window.URL.createObjectURL(blob)
     })
-    //dispatch(downloadMissing())
+    dispatch(downloadMissing())
 }
 async function rememberLastPlayed (entryOrId) {
     const {id, entry} = await getEntryAndId(entryOrId)
@@ -413,14 +388,13 @@ async function rememberLastPlayed (entryOrId) {
 const getNeighbour = async function (entryOrId, d) {
     const {id, entry} = await getEntryAndId(entryOrId)
     const dir = await getDir(entry.parent)
-    const files = dir.filter(entry => entry.type == TYPE_FILE)
+    const files = dir.filter(isFile)
     const idx = files.findIndex(file => file.id == entry.id)
     if(idx != null) {
         const newIdx = idx + d
         if (newIdx >=0 && newIdx < files.length) return files[newIdx]
     }
 }
-
 const skip = (d) => () => async (dispatch, getState) => {
     const neighbour = await getNeighbour(currentFileSelector(getState()), d)
     if(neighbour) dispatch(setCurrentFile(neighbour))
