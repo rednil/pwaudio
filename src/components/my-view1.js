@@ -3,7 +3,6 @@ import { PageViewElement } from './page-view-element.js'
 import { connect } from 'pwa-helpers/connect-mixin.js'
 import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
-import '@material/mwc-icon-button'
 import {
     TYPE_FILE,
     STATE_ERROR,
@@ -129,8 +128,41 @@ class MyView1 extends connect(store)(PageViewElement) {
                     display: flex;
                     justify-content: space-between;
                 }
+                .buttons > button {
+                    flex:1;
+                    cursor: pointer;
+                }
                 .button:last-child {
                     margin-right: 0;
+                }
+                .material-icons {
+                    font-family: 'Material Icons';
+                    font-weight: normal;
+                    font-style: normal;
+                    font-size: 24px;  /* Preferred icon size */
+                    display: inline-block;
+                    line-height: 1;
+                    text-transform: none;
+                    letter-spacing: normal;
+                    word-wrap: normal;
+                    white-space: nowrap;
+                    direction: ltr;
+                  
+                    /* Support for all WebKit browsers. */
+                    -webkit-font-smoothing: antialiased;
+                    /* Support for Safari and Chrome. */
+                    text-rendering: optimizeLegibility;
+                  
+                    /* Support for Firefox. */
+                    -moz-osx-font-smoothing: grayscale;
+                  
+                    /* Support for IE. */
+                    font-feature-settings: 'liga';
+                  }
+                .workaround {
+                    width: 24px;
+                    display: block;
+                    margin: auto;
                 }
             `
         ]
@@ -139,12 +171,12 @@ class MyView1 extends connect(store)(PageViewElement) {
         return html`
             <div class="controls">
                 <div class="buttons">
-                    <mwc-icon-button raised icon="home" @click=${this._homeClickHandler}></mwc-icon-button>
-                    <mwc-icon-button raised icon="skip_previous" @click=${() => store.dispatch(last())}></mwc-icon-button>
-                    <mwc-icon-button raised icon="${this._isPlaying ? "pause" : "play_arrow"}" @click=${this._togglePlaying}></mwc-icon-button>
-                    <mwc-icon-button raised icon="skip_next" @click=${() => store.dispatch(next())}></mwc-icon-button>
-                    <mwc-icon-button raised icon="refresh" @click=${() => store.dispatch(reload())}></mwc-icon-button>
-                    <mwc-icon-button raised icon="${this._cachedOnly ? 'wifi_off' : 'wifi_on'}" @click=${this._toggleCachedOnly}></mwc-icon-button>
+                    <button class="material-icons" @click=${this._homeClickHandler}>home</button>
+                    <button class="material-icons" @click=${() => store.dispatch(last())}>skip_previous</button>
+                    <button class="material-icons" @click=${this._togglePlaying}>${this._isPlaying ? "pause" : "play_arrow"}</button>
+                    <button class="material-icons" @click=${() => store.dispatch(next())}>skip_next</button>
+                    <button class="material-icons" @click=${() => store.dispatch(reload())}>refresh</button>
+                    <button class="material-icons" @click=${this._toggleCachedOnly}><span class="workaround">${this._cachedOnly ? 'wifi_off' : 'wifi_on'}</span></button>
                 </div>
                 <audio
                     autoplay

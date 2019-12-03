@@ -39,7 +39,7 @@ if (navigator.storage && navigator.storage.persist){
 }
 */
 const cachedOnlyFilter = (cachedOnly) => {
-    if (cachedOnly) return (entry) => entry.cached && (entry.cached == STATE_YES)
+    if (cachedOnly) return (entry) => entry.cached && (entry.cached == STATE_YES) || (entry.cached == STATE_PARTIAL)
 }
 
 const setDirectory = (id, discardCache) => async function(dispatch, getState) {
