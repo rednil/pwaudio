@@ -139,7 +139,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     font-family: 'Material Icons';
                     font-weight: normal;
                     font-style: normal;
-                    font-size: 24px;  /* Preferred icon size */
+                    font-size: 36px;  /* Preferred icon size */
                     display: inline-block;
                     line-height: 1;
                     text-transform: none;
@@ -160,7 +160,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     font-feature-settings: 'liga';
                   }
                 .workaround {
-                    width: 24px;
+                    width: 36px;
                     display: block;
                     margin: auto;
                 }
