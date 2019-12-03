@@ -12,7 +12,7 @@ export const STATE_UNKNOWN = 'UNKNOWN'
 export const STATE_ERROR = 'ERROR'
 export const STATE_REQUESTED = 'REQUESTED'
 export const TOGGLE_CACHED_ONLY = 'TOGGLE_CACHED_ONLY'
-const TYPE_FILE = 'File'
+export const TYPE_FILE = 'File'
 const TYPE_DIRECTORY = 'Directory'
 const preload = 2
 
@@ -39,7 +39,7 @@ if (navigator.storage && navigator.storage.persist){
 }
 */
 const cachedOnlyFilter = (cachedOnly) => {
-    if (cachedOnly) return (entry) => entry.cached && (entry.cached != STATE_NO)
+    if (cachedOnly) return (entry) => entry.cached && (entry.cached == STATE_YES)
 }
 
 const setDirectory = (id, discardCache) => async function(dispatch, getState) {
@@ -82,7 +82,7 @@ export const downloadMissing = () => async function(dispatch, getState) {
     if(current) {
         for(let i=1; i<preload+1; i++) {
             const next = await getNeighbour(current, i)
-            if(next && next.cached != STATE_YES) missing = next
+            if(next && next.cached != STATE_YES && next.cached != STATE_ERROR) missing = next
         }
     }
     if(!missing) {
@@ -92,7 +92,7 @@ export const downloadMissing = () => async function(dispatch, getState) {
         }).first()
     }
     if(missing) {
-        await getBlob(missing.id, dispatch)
+        await getBlob(missing.id, dispatch, getState)
         dispatch(downloadMissing())
     }
 }
@@ -199,21 +199,20 @@ async function id2url (id) {
     }
     return url
 }
-async function getBlob(id, dispatch) {
+async function getBlob(id, dispatch, getState) {
     const cached = await db.file.get(id)
     let blob = cached && cached.blob
     if(!blob) {
         try {
             const url = await id2url(id)
             blob = await fetchBlob(url)
-            if(blob) {
-                await db.file.put({id, blob})
-                await updateEntry(id, {cached: STATE_YES}, dispatch)
-            }
+            await db.file.put({id, blob})
+            await updateEntry(id, {cached: STATE_YES, error: undefined}, dispatch)
         }
         catch(error) {
             console.error('getBlob error', error, '=> removing cache entry')
-            await updateEntry(id, {cached: STATE_ERROR})
+            const msg = error + ' ' + (getState().app.offline ? 'offline' : 'online')
+            await updateEntry(id, {cached: STATE_ERROR, error: msg })
         }
     }
     return blob
@@ -280,13 +279,13 @@ async function fetchBlob(url) {
                 resolve(blob)
             }
             else {
-                reject({request: this})
+                reject(this.status)
                 console.error('XMLHttpRequest Status', this.status)
             }
         }
         xhr.onerror = function(error) {
-            reject({request: this, error})
-            console.error('XMLHttpRequest Error', this.status, error)
+            reject(error)
+            console.error('XMLHttpRequest Error', error) 
         }
         xhr.send()
     })
@@ -360,7 +359,7 @@ const refresh = () => async function (dispatch, getState) {
     const id = folderIdSelector(getState())
     if(id) setDirectory(id)(dispatch, getState)
 }
-export const setCurrentFile = (entryOrId) => async function(dispatch){
+export const setCurrentFile = (entryOrId) => async function(dispatch, getState){
     const {id, entry} = await getEntryAndId(entryOrId)
     dispatch({
         type: SET_CURRENT_FILE,
@@ -368,11 +367,13 @@ export const setCurrentFile = (entryOrId) => async function(dispatch){
     })
     await rememberLastPlayed(entry)
     dispatch(refresh())
-    const blob = await getBlob(id, dispatch)
-    dispatch({
-        type: SET_PLAYER_SOURCE,
-        url: window.URL.createObjectURL(blob)
-    })
+    const blob = await getBlob(id, dispatch, getState)
+    if(blob) {
+        dispatch({
+            type: SET_PLAYER_SOURCE,
+            url: window.URL.createObjectURL(blob)
+        })
+    }
     dispatch(downloadMissing())
 }
 async function rememberLastPlayed (entryOrId) {

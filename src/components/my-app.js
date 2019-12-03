@@ -41,7 +41,7 @@ class MyApp extends connect(store)(LitElement) {
     return {
       appTitle: { type: String },
       _page: { type: String },
-      _snackbarOpened: { type: Boolean },
+      _snackbar: { type: String },
       _offline: { type: Boolean }
     };
   }
@@ -114,8 +114,8 @@ class MyApp extends connect(store)(LitElement) {
       </main>
 
      
-      <snack-bar ?active="${this._snackbarOpened}">
-        You are now ${this._offline ? 'offline' : 'online'}.
+      <snack-bar ?active="${this._snackbar != null}">
+        ${this._snackbar}
       </snack-bar>
     `;
   }
@@ -136,7 +136,7 @@ class MyApp extends connect(store)(LitElement) {
   stateChanged(state) {
     this._page = state.app.page
     this._offline = state.app.offline
-    this._snackbarOpened = state.app.snackbarOpened
+    this._snackbar = state.app.snackbar
   }
 }
 

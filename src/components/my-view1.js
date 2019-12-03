@@ -5,13 +5,19 @@ import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
 import '@material/mwc-icon-button'
 import {
+    TYPE_FILE,
+    STATE_ERROR,
     toggleCachedOnly,
     play,
+    select,
     reload,
     next,
     last,
     pin
 } from '../actions/player.js'
+import {
+    showSnackbar,
+} from '../actions/app.js'
 import {
     cachedOnlySelector,
     contentSelector,
@@ -71,11 +77,12 @@ class MyView1 extends connect(store)(PageViewElement) {
                     content: "🎵";
                     margin: 0.5em;
                 }
-                .entry.error:before {
-                    content: "⚠";
-                }
                 .entry.Directory:before {
                     content : "📁";
+                    margin: 0.5em;
+                }
+                .entry.error:before {
+                    content: "⚠";
                     margin: 0.5em;
                 }
                 .parent:before {
@@ -112,6 +119,9 @@ class MyView1 extends connect(store)(PageViewElement) {
                     color: green;
                     animation: blinking 0.8s infinite
                 }
+                .cached.ERROR {
+                    color: red;
+                }
                 .cached.PARTIAL {
                     color: darkseagreen;
                 }
@@ -144,12 +154,11 @@ class MyView1 extends connect(store)(PageViewElement) {
                         <code>audio</code> element.
                 </audio>
                 <div class="parents" @click=${this._parentClickHandler} >
-                    ${this._parents.map((folder, idx) => html`
-                    
+                    ${this._parents.map((entry, idx) => html`
                         <div class="entry parent" name=${idx}>
-                            <div class="name" >${folder.basename}</div>
-                            <div class="cached ${folder.cached}">⬤</div>
-                            <div class="pinned ${folder.pinned}">📌</div>
+                            <div class="name" >${entry.basename}</div>
+                            <div class="cached ${entry.cached}">⬤</div>
+                            <div class="pinned ${entry.pinned}">📌</div>
                         </div>
                     `)}
                 </div>
@@ -205,8 +214,10 @@ class MyView1 extends connect(store)(PageViewElement) {
         return (this._lastPlayed == entry.id) ? 'playing' : ''
     }
     _getIdxFromEvt(evt){
-        const idx = evt.composedPath()[1].getAttribute('name')
+        const path = evt.composedPath()
+        const idx = path && (path[1] && path[1].getAttribute && path[1].getAttribute('name')) || path[0].getAttribute('name')
         if(idx != null) return Number(idx)
+
     }
     _getClassListFromEvt(evt){
         return evt.composedPath()[0].classList
@@ -233,19 +244,25 @@ class MyView1 extends connect(store)(PageViewElement) {
     }
     _pinCacheClickHandler(evt, entry){
         const classes = this._getClassListFromEvt(evt)
-        if(classes.contains('pinned') || classes.contains('cached')) {
+        if(classes.contains('pinned')){
             store.dispatch(pin(entry))
             return true
         }
+        if(classes.contains('cached')) {
+            store.dispatch(pin(entry))
+            return true
+        }
+
     }
     _contentClickHandler(evt) {
         const idx = this._getIdxFromEvt(evt)
         if(idx == null) return
         const entry = this._content[idx]
-        if(!this._pinCacheClickHandler(evt, entry)){
-            window.location.hash = entry.id
-            //store.dispatch(select(entry.id))
-        }
+        if(this._pinCacheClickHandler(evt, entry)) return
+        if(evt.composedPath()[0].getAttribute('name') == idx) store.dispatch(showSnackbar(entry.error))
+        else if(entry.type == TYPE_FILE) store.dispatch(select(entry.id))
+        else window.location.hash = entry.id
+        
     }
 }
 

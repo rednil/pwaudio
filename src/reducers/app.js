@@ -36,12 +36,12 @@ const app = (state = INITIAL_STATE, action) => {
     case OPEN_SNACKBAR:
       return {
         ...state,
-        snackbarOpened: true
+        snackbar: action.msg,
       };
     case CLOSE_SNACKBAR:
       return {
         ...state,
-        snackbarOpened: false
+        snackbar: null
       };
     default:
       return state;
