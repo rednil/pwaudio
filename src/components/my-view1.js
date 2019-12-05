@@ -12,7 +12,8 @@ import {
     reload,
     next,
     last,
-    pin
+    pin,
+    setTimer
 } from '../actions/player.js'
 import {
     showSnackbar,
@@ -24,7 +25,9 @@ import {
     currentFileSelector,
     isPlayingSelector,
     playerSourceSelector,
-    lastPlayedSelector
+    lastPlayedSelector,
+    timerSelector,
+    timeRemainingSelector
 } from '../reducers/player.js'
 
 class MyView1 extends connect(store)(PageViewElement) {
@@ -131,6 +134,9 @@ class MyView1 extends connect(store)(PageViewElement) {
                 .buttons > button {
                     flex:1;
                     cursor: pointer;
+                    height: 1.5em;
+                    font-size: 2em;  /* Preferred icon size */
+                    
                 }
                 .button:last-child {
                     margin-right: 0;
@@ -139,7 +145,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     font-family: 'Material Icons';
                     font-weight: normal;
                     font-style: normal;
-                    font-size: 36px;  /* Preferred icon size */
+                    
                     display: inline-block;
                     line-height: 1;
                     text-transform: none;
@@ -160,10 +166,29 @@ class MyView1 extends connect(store)(PageViewElement) {
                     font-feature-settings: 'liga';
                   }
                 .workaround {
-                    width: 36px;
+                    width: 1em;
                     display: block;
                     margin: auto;
                 }
+                .timer {
+                    display: flex;
+                }
+                .timer > span {
+                    margin: auto;
+                }
+                button.play {
+                    flex: 2;
+                }
+                .timer .remaining {
+                    font-size: 0.5em;
+                }
+                @media only screen and (max-width: 600px) {
+                    .buttons > button {
+                        font-size: 1.5em;
+                    }
+                }
+                    
+
             `
         ]
     }
@@ -173,7 +198,11 @@ class MyView1 extends connect(store)(PageViewElement) {
                 <div class="buttons">
                     <button class="material-icons" @click=${this._homeClickHandler}>home</button>
                     <button class="material-icons" @click=${() => store.dispatch(last())}>skip_previous</button>
-                    <button class="material-icons" @click=${this._togglePlaying}>${this._isPlaying ? "pause" : "play_arrow"}</button>
+                    <button class="play material-icons" @click=${this._togglePlaying}>${this._isPlaying ? "pause" : "play_arrow"}</button>
+                    <button class="timer" @click=${this._toggleTimer}>
+                        <span class="material-icons">${this._timer ? 'timer' : 'timer_off'}</span>
+                        ${this._timer ? html`<span class="remaining">${this._timeRemaining}m</span>` : ''}
+                    </button>
                     <button class="material-icons" @click=${() => store.dispatch(next())}>skip_next</button>
                     <button class="material-icons" @click=${() => store.dispatch(reload())}>refresh</button>
                     <button class="material-icons" @click=${this._toggleCachedOnly}><span class="workaround">${this._cachedOnly ? 'wifi_off' : 'wifi_on'}</span></button>
@@ -216,7 +245,9 @@ class MyView1 extends connect(store)(PageViewElement) {
             _playerSourceSelector: { type: String },
             _content: { type: Array },
             _parents: { type: Array },
-            _isPlaying: { type: Boolean }
+            _isPlaying: { type: Boolean },
+            _timer: { type: Number },
+            _timeRemaining: { type: Number }
         }
     }
     stateChanged(state) {
@@ -227,6 +258,8 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._playerSourceSelector = playerSourceSelector(state) || ''
         this._isPlaying = isPlayingSelector(state)
         this._cachedOnly = cachedOnlySelector(state)
+        this._timer = timerSelector(state)
+        this._timeRemaining = timeRemainingSelector(state)
     }
     updated(){
         if(this._isPlaying) this._getAudioNode().play()
@@ -255,7 +288,6 @@ class MyView1 extends connect(store)(PageViewElement) {
         return evt.composedPath()[0].classList
     }
     _homeClickHandler(evt){
-        //store.dispatch(selectFolder(''))
         window.location.hash = ''
         window.history.go(-window.history.length)
     }
@@ -270,9 +302,18 @@ class MyView1 extends connect(store)(PageViewElement) {
         if(!this._pinCacheClickHandler(evt, entry)){
             const dHistory = idx - this._parents.length + 1
             window.history.go(dHistory)
-            //window.location.hash = entry.name
-            //store.dispatch(selectFolder(entry.name))
         }
+    }
+    _toggleTimer(){
+        let newTimer = 0
+        if(!this._timer) newTimer = timers[1]
+        else if (this._timeRemaining != this._timer) newTimer = this._timer
+        else {
+            const idx = timers.indexOf(this._timer) + 1
+            newTimer = timers[idx >= timers.length ? 0 : idx]
+        }
+        store.dispatch(setTimer(newTimer))
+
     }
     _pinCacheClickHandler(evt, entry){
         const classes = this._getClassListFromEvt(evt)
@@ -297,5 +338,5 @@ class MyView1 extends connect(store)(PageViewElement) {
         
     }
 }
-
-window.customElements.define('my-view1', MyView1);
+const timers = [0, 15, 30, 60]
+window.customElements.define('my-view1', MyView1)

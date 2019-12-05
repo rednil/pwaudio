@@ -13,6 +13,9 @@ export const STATE_ERROR = 'ERROR'
 export const STATE_REQUESTED = 'REQUESTED'
 export const TOGGLE_CACHED_ONLY = 'TOGGLE_CACHED_ONLY'
 export const TYPE_FILE = 'File'
+export const SET_TIMER = 'SET_TIMER'
+export const SET_TIME_REMAINING = 'SET_TIME_REMAINING'
+
 const TYPE_DIRECTORY = 'Directory'
 const preload = 2
 
@@ -20,7 +23,11 @@ import Dexie from 'dexie'
 import {
     currentFileSelector,
     folderIdSelector,
-    cachedOnlySelector
+    cachedOnlySelector,
+    timerStepSelector,
+    timerSelector,
+    timeRemainingSelector,
+    isPlayingSelector
 } from '../reducers/player.js'
 
 const separator = ' - '
@@ -30,6 +37,7 @@ db.version(1).stores({
     tree: '++id, name, parent, cached, type, [cached+type]',
     file: 'id, blob'
 })
+let timer
 /*
 if (navigator.storage && navigator.storage.persist){
     navigator.storage.persist().then(function(persistent) {
@@ -57,6 +65,38 @@ export const toggleCachedOnly = () => (dispatch, getState) => {
         type: TOGGLE_CACHED_ONLY
     })
     dispatch(refresh())
+}
+export const setTimer = (timeout, step) => (dispatch, getState) => {
+    if(step == null) step = timerStepSelector(getState())
+    if(timeout == null) timeout = timerSelector(getState())
+    dispatch({
+        type: SET_TIMER,
+        timeout,
+        step
+    })
+    if(timer) clearTimeout(timer)
+    if(timeout && isPlayingSelector(getState())) {
+        timer = setInterval(() => {
+            const isPlaying = isPlayingSelector(getState())
+            const timeRemaining = timeRemainingSelector(getState())
+            if(!isPlaying || timeRemaining<=1) {
+                window.clearInterval(timer)
+                dispatch(play(false))
+                dispatch(setTimer())
+            }
+            else{
+                dispatch({
+                    type: SET_TIME_REMAINING,
+                    timeRemaining: timeRemaining-1
+                })
+            }
+        }, step)
+    }
+}
+
+const startTimer = () => (dispatch, getState) => {
+   
+    
 }
 export const select = (entryOrId) => {
     return async function(dispatch) {
@@ -321,6 +361,7 @@ export const play = (bool) => async function (dispatch, getState) {
         const folderId = folderIdSelector(getState())
         const parentsOfFilePlaying = await getParents(currentFileSelector(getState()))
         if(!parentsOfFilePlaying.find(entry => entry.id == folderId)){
+            // we are in a different folder than the file last played, look for a file to play
             const entryOrId = await getLastPlayedOrFirst(folderId)
             return dispatch(setCurrentFile(entryOrId))
         }
@@ -329,6 +370,7 @@ export const play = (bool) => async function (dispatch, getState) {
         type: SET_PLAYING,
         bool
     })
+    if(bool) dispatch(setTimer())
 }
 async function getLastPlayedOrFirst(entryOrId) {
     const {id, entry} = await getEntryAndId(entryOrId)
@@ -373,6 +415,7 @@ export const setCurrentFile = (entryOrId) => async function(dispatch, getState){
             type: SET_PLAYER_SOURCE,
             url: window.URL.createObjectURL(blob)
         })
+        dispatch(setTimer())
     }
     dispatch(downloadMissing())
 }

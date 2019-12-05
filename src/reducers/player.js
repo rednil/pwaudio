@@ -4,6 +4,8 @@ import {
     SET_CURRENT_FILE,
     SET_PLAYING,
     SET_PLAYER_SOURCE,
+    SET_TIMER,
+    SET_TIME_REMAINING,
     TOGGLE_CACHED_ONLY
 } from '../actions/player.js'
 import { createSelector } from 'reselect'
@@ -13,7 +15,10 @@ const INITIAL_STATE = {
   dir: [],
   parents: [],
   currentFile: null,
-  isPlaying: false
+  isPlaying: false,
+  timerStep: 60000,
+  timer: 0,
+  timeRemaining: 0
 }
 
 const player = (state = INITIAL_STATE, action) => {
@@ -54,6 +59,18 @@ const player = (state = INITIAL_STATE, action) => {
             ...state,
             cachedOnly: !state.cachedOnly
         }
+    case SET_TIMER:
+        return {
+            ...state,
+            timer: action.timeout,
+            timeRemaining: action.timeout,
+            timerStep: action.step
+        }
+    case SET_TIME_REMAINING:
+        return {
+            ...state,
+            timeRemaining: action.timeRemaining
+        }
     default:
       return state
   }
@@ -68,3 +85,6 @@ export const parentsSelector = state => state.player.parents
 export const folderIdSelector = state => state.player.id
 export const playerSourceSelector = state => state.player.playerSource
 export const cachedOnlySelector = state => state.player.cachedOnly
+export const timerSelector = state => state.player.timer
+export const timeRemainingSelector = state => state.player.timeRemaining
+export const timerStepSelector = state => state.player.timerStep
