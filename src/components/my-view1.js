@@ -5,6 +5,7 @@ import { store } from '../store.js'
 import { SharedStyles } from './shared-styles.js'
 import {
     TYPE_FILE,
+    TYPE_FOLDER,
     STATE_ERROR,
     toggleCachedOnly,
     play,
@@ -13,7 +14,8 @@ import {
     next,
     last,
     pin,
-    setTimer
+    setTimer,
+    toggleIndex
 } from '../actions/player.js'
 import {
     showSnackbar,
@@ -27,7 +29,9 @@ import {
     playerSourceSelector,
     lastPlayedSelector,
     timerSelector,
-    timeRemainingSelector
+    timeRemainingSelector,
+    indexSelector,
+    indexIdSelector
 } from '../reducers/player.js'
 
 class MyView1 extends connect(store)(PageViewElement) {
@@ -35,7 +39,7 @@ class MyView1 extends connect(store)(PageViewElement) {
         return [
             SharedStyles,
             css`
-                .parent .name, .server {
+                .parents .entry .name, .server {
                     font-weight: bold;
                 }
                 :host {
@@ -53,7 +57,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 .playing {
                     color: red;
                 }
-                .entry.parent {
+                .parents .entry {
                     background-color: #dddddd;
                 }
                 .entry {
@@ -87,12 +91,17 @@ class MyView1 extends connect(store)(PageViewElement) {
                     content: "⚠";
                     margin: 0.5em;
                 }
-                .parent:before {
+                .parents .entry:before {
                     content: "📂";
                     margin: 0.5em;
                 }
-                .pinned {
+                .icon {
                     margin: 0.5em;
+                }
+                .index {
+                    margin: 0.5em;
+                }
+                .pinned {
                     opacity: 0.3;
                     cursor: pointer;
                 }
@@ -104,7 +113,6 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .cached {
                     color: beige;
-                    margin: 0.5em;
                 }
                 @keyframes blinking{
                     0%{     opacity: 1;    }
@@ -185,9 +193,12 @@ class MyView1 extends connect(store)(PageViewElement) {
                 @media only screen and (max-width: 600px) {
                     .buttons > button {
                         font-size: 1.5em;
+                        height: 2em;
                     }
                 }
-                    
+                .offline {
+                    color: red;
+                }
 
             `
         ]
@@ -205,7 +216,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     </button>
                     <button class="material-icons" @click=${() => store.dispatch(next())}>skip_next</button>
                     <button class="material-icons" @click=${() => store.dispatch(reload())}>refresh</button>
-                    <button class="material-icons" @click=${this._toggleCachedOnly}><span class="workaround">${this._cachedOnly ? 'wifi_off' : 'wifi_on'}</span></button>
+                    <button class="material-icons ${this._offline ? 'offline' : ''}" @click=${this._toggleCachedOnly}><span class="workaround">${this._cachedOnly ? 'wifi_off' : 'wifi_on'}</span></button>
                 </div>
                 <audio
                     autoplay
@@ -215,25 +226,27 @@ class MyView1 extends connect(store)(PageViewElement) {
                         <code>audio</code> element.
                 </audio>
                 <div class="parents" @click=${this._parentClickHandler} >
-                    ${this._parents.map((entry, idx) => html`
-                        <div class="entry parent" name=${idx}>
-                            <div class="name" >${entry.basename}</div>
-                            <div class="cached ${entry.cached}">⬤</div>
-                            <div class="pinned ${entry.pinned}">📌</div>
-                        </div>
-                    `)}
+                    ${this._parents.map(this.renderEntry.bind(this))}
                 </div>
             </div>
             <div class="content" @click=${this._contentClickHandler}>
-                ${this._content.map((entry, idx) => html`
-                    <div name=${idx} class="entry ${entry.type} ${entry.error ? 'error' : ''}">
-                        <div class="name ${this._fileClass(entry)}">${entry.basename}</div>
-                        <div class="cached ${entry.cached}">⬤</div>
-                        <div class="pinned ${entry.pinned}">📌</div>
-                    </div>
-                `)}
+                ${this._content.map(this.renderEntry.bind(this))}
             </div>
             
+        `
+    }
+
+    renderEntry(entry, idx) {
+        return html`
+            <div name=${idx} class="entry ${entry.type} ${entry.error ? 'error' : ''}">
+                <div class="name ${this._fileClass(entry)}">${entry.basename}</div>
+                ${this._cachedOnly ? '' : html`
+                    ${entry.index ? html`<div class="icon info">🛈</div>` : ''}
+                    <div class="icon cached ${entry.cached}">⬤</div>
+                    <div class="icon pinned ${entry.pinned}">📌</div>
+                `}
+            </div>
+            ${entry.index && (entry.id == this._indexId && !this._cachedOnly) ? html`<div class="index">${html([this._index])}</div>` : ''}
         `
     }
     
@@ -247,7 +260,9 @@ class MyView1 extends connect(store)(PageViewElement) {
             _parents: { type: Array },
             _isPlaying: { type: Boolean },
             _timer: { type: Number },
-            _timeRemaining: { type: Number }
+            _timeRemaining: { type: Number },
+            _index: { type: String },
+            _indexId: { type: Number }
         }
     }
     stateChanged(state) {
@@ -257,9 +272,12 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._currentFile = currentFileSelector(state)
         this._playerSourceSelector = playerSourceSelector(state) || ''
         this._isPlaying = isPlayingSelector(state)
-        this._cachedOnly = cachedOnlySelector(state)
+        this._cachedOnly = cachedOnlySelector(state) || state.app.offline
         this._timer = timerSelector(state)
         this._timeRemaining = timeRemainingSelector(state)
+        this._offline = state.app.offline,
+        this._index = indexSelector(state)
+        this._indexId = indexIdSelector(state)
     }
     updated(){
         if(this._isPlaying) this._getAudioNode().play()
@@ -292,7 +310,8 @@ class MyView1 extends connect(store)(PageViewElement) {
         window.history.go(-window.history.length)
     }
     _toggleCachedOnly() {
-        store.dispatch(toggleCachedOnly())
+        if(this._offline) dispatch(showSnackbar('Your are offline!'))
+        else store.dispatch(toggleCachedOnly())
     }
     _parentClickHandler(evt){
         // TODO: search history
@@ -325,7 +344,10 @@ class MyView1 extends connect(store)(PageViewElement) {
             store.dispatch(pin(entry))
             return true
         }
-
+        if(classes.contains('info')) {
+            store.dispatch(toggleIndex(entry))
+            return true
+        }
     }
     _contentClickHandler(evt) {
         const idx = this._getIdxFromEvt(evt)

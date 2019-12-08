@@ -6,7 +6,9 @@ import {
     SET_PLAYER_SOURCE,
     SET_TIMER,
     SET_TIME_REMAINING,
-    TOGGLE_CACHED_ONLY
+    TOGGLE_CACHED_ONLY,
+    SET_INDEX_ID,
+    SET_INDEX
 } from '../actions/player.js'
 import { createSelector } from 'reselect'
 
@@ -35,7 +37,9 @@ const player = (state = INITIAL_STATE, action) => {
       return {
         ...state,
         dir: action.dir || [],
-        parents: action.parents || []
+        parents: action.parents || [],
+        indexId: undefined,
+        index: undefined
       }
     case SET_CURRENT_FILE:
         return {
@@ -71,6 +75,17 @@ const player = (state = INITIAL_STATE, action) => {
             ...state,
             timeRemaining: action.timeRemaining
         }
+    case SET_INDEX_ID:
+        return {
+            ...state,
+            indexId: action.id,
+            index: undefined
+        }
+    case SET_INDEX:
+        return {
+            ...state,
+            index: action.index
+        }
     default:
       return state
   }
@@ -88,3 +103,5 @@ export const cachedOnlySelector = state => state.player.cachedOnly
 export const timerSelector = state => state.player.timer
 export const timeRemainingSelector = state => state.player.timeRemaining
 export const timerStepSelector = state => state.player.timerStep
+export const indexIdSelector = state => state.player.indexId
+export const indexSelector = state => state.player.index
