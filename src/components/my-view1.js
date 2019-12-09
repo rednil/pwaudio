@@ -100,6 +100,8 @@ class MyView1 extends connect(store)(PageViewElement) {
                 }
                 .index {
                     margin: 0.5em;
+                    max-height: 10em;
+                    overflow: auto;
                 }
                 .pinned {
                     opacity: 0.3;
@@ -246,7 +248,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     <div class="icon pinned ${entry.pinned}">📌</div>
                 `}
             </div>
-            ${entry.index && (entry.id == this._indexId && !this._cachedOnly) ? html`<div class="index">${html([this._index])}</div>` : ''}
+            ${entry.index && (entry.id == this._indexId && !this._cachedOnly) ? html`<div class="index">${html([this._index.replace(/\n/g, '<br/>')])}</div>` : ''}
         `
     }
     
