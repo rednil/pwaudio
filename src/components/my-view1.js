@@ -243,7 +243,7 @@ class MyView1 extends connect(store)(PageViewElement) {
             <div name=${idx} class="entry ${entry.type} ${entry.error ? 'error' : ''}">
                 <div class="name ${this._fileClass(entry)}">${entry.basename}</div>
                 ${this._cachedOnly ? '' : html`
-                    ${entry.index ? html`<div class="icon info">🛈</div>` : ''}
+                    ${entry.index ? html`<div class="icon info">ⓘ</div>` : ''}
                     <div class="icon cached ${entry.cached}">⬤</div>
                     <div class="icon pinned ${entry.pinned}">📌</div>
                 `}
