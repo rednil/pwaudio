@@ -239,7 +239,11 @@ async function fetchDir(id, oldDir) {
     const parents = await getParents(id, true)
     const parent = parents[parents.length-1]
     const url = await id2url(id)
-    let response = await fetch(url, { method: 'GET' })
+    let response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
+    if(response.status != 200) {
+        console.error('fetchDir error', response.status, response.error)
+        return []
+    }
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     const index = content.find(isIndex)
@@ -264,8 +268,13 @@ async function fetchDir(id, oldDir) {
         if (content.find(entry => oldEntry.name == entry.name)) validOldEntries.push(oldEntry)
         else obsoleteOldEntries.push(oldEntry)
     })
-    await db.transaction('rw!', db.tree, () => Promise.all(newEntries.map(entry => db.tree.put(entry))))
-    if(index) await updateEntry(id, {index: index.name})
+    try{
+        await db.transaction('rw!', db.tree, () => Promise.all(newEntries.map(entry => db.tree.put(entry))))
+        if(index) await updateEntry(id, {index: index.name})
+    }
+    catch(e) {
+        console.log('db error', e)
+    }
     const dir = newEntries.concat(validOldEntries)
     return dir
 }

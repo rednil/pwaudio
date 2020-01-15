@@ -9,7 +9,7 @@
   "scripts": {
     "watch": "browser-sync start --proxy localhost:8080 --open --files \"src/**/*.js\" \"index.html\"",
     "start": "npm run start:backend | npm run start:frontend",
-    "start:frontend": "polymer serve --port 8080 | npm run watch",
+    "start:frontend": "polymer serve --port 8080 --proxy-path=fs --proxy-target=http://localhost:3001/fs | npm run watch",
     "start:backend": "node server/index.js -v /mnt/teracrypt/audio/audiobooks/de -p 3001",
     "build": "npm run build:static",
     "build:prpl": "polymer build --auto-base-path && gulp prpl-server",
@@ -35,7 +35,7 @@
     "webdav": "^2.10.0"
   },
   "devDependencies": {
-    "polymer-cli": "^1.9.3",
+    "polymer-cli": "^1.9.11",
     "axe-core": "^3.0.0",
     "chai": "^4.1.2",
     "del": "^3.0.0",

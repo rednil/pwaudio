@@ -35,12 +35,12 @@ const loadPage = (page) => (dispatch) => {
         if(hash && !isNaN(hash)) dispatch(select(Number(hash)))
         else {
             const {protocol, hostname, port} = window.location
-            const server = (port == 3000) ? `${protocol}//${hostname}:3001` : ''
+            const server = ''//(port == 3000) ? `${protocol}//${hostname}:3001` : ''
             dispatch(setServer(server + '/fs/'))
         }
       })
       break;
-    case 'view2':
+    case 'settings':
       import('../components/my-view2.js');
       break;
     case 'view3':

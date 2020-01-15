@@ -8,7 +8,7 @@ Code distributed by Google as part of the polymer project is also
 subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 */
 
-import { html } from 'lit-element';
+import { html, css } from 'lit-element';
 import { PageViewElement } from './page-view-element.js';
 import { connect } from 'pwa-helpers/connect-mixin.js';
 
@@ -41,33 +41,66 @@ class MyView2 extends connect(store)(PageViewElement) {
 
   static get styles() {
     return [
-      SharedStyles
-    ];
+      SharedStyles,
+      css`
+        :host {
+            flex-direction: column;
+            flex: 1;
+        }
+        .head {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            
+        }
+        
+        button, select {
+            cursor: pointer;
+            height: 1.5em;
+            font-size: 2em;  
+        }
+        .head .label {
+            margin: auto 2rem;
+            font-size: 2em; 
+        }
+        .canvas {
+            display: flex;
+            flex:1;
+            margin: auto;
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        .content > div {
+            display: flex;
+            flex-direction: column;
+        }
+      `
+    ]
   }
 
   render() {
     return html`
-      <section>
-        <h2>Redux example: simple counter</h2>
-        <div>Number of clicks: <b>${this._value}</b></div>
-        <p>This page contains a reusable <code>&lt;counter-element&gt;</code>. The
-        element is not built in a Redux-y way (you can think of it as being a
-        third-party element you got from someone else), but this page is connected to the
-        Redux store. When the element updates its counter, this page updates the values
-        in the Redux store, and you can see the current value of the counter reflected in
-        the bubble above.</p>
-        <br>
-      </section>
-      <section>
-        <p>
-          <counter-element
-              value="${this._value}"
-              clicks="${this._clicks}"
-              @counter-incremented="${this._counterIncremented}"
-              @counter-decremented="${this._counterDecremented}">
-          </counter-element>
-        </p>
-      </section>
+        <div class="head">
+            <a href="player"><button class="material-icons">menu_open</button></a>
+            <div class="label">Settings</div>
+        </div>
+        <div class="canvas">
+            <div class="content">
+                <div>
+                    <label for="reset">Clear Cache</label>
+                    <button id="reset">Reset</button>
+                </div>
+                <div>
+                    <label for="cachesize">Cache Size</label>
+                    <select id="cachesize" >
+                        <option>500 MB</option>
+                    </select>
+                </div>
+            </div>
+        </div>
     `;
   }
 

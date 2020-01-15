@@ -1,9 +1,12 @@
 const express = require('express')
+const httpAuth = require('http-auth');
 const fs = require('fs')
 const cors = require('cors')
 var argv = require('minimist')(process.argv.slice(2))
 const root = argv.v || '/fs'
 const port = argv.p || 80
+
+console.log(Buffer.from('$apr1$L58g0SxF$v3OVwcUQAw5MEmGgGnt/a.', 'base64').toString())
 /*
 const getType = (dirent) => {
     if(dirent.isFile()) return 'File'
@@ -25,10 +28,12 @@ const getResponseObj = (dir) => {
 */
 const index = (root) => (req, res, next) => {
     const path = decodeURIComponent(req.path)
+    console.log('index', root, path)
     if(path.slice(-1) == '/') {
         fs.readdir(root + path, {withFileTypes: true}, (err, dir) => {
             if(!err) {
                 res.setHeader('Content-Type', 'application/json');
+                console.log('send')
                 //res.send(JSON.stringify(getResponseObj(dir), null, 2))
                 res.send(dir.map(dirent => dirent.name + (dirent.isDirectory() ? '/' : '')))
             }
@@ -37,10 +42,17 @@ const index = (root) => (req, res, next) => {
     }
     else next()
 }
-
+function getUnauthorizedResponse(req) {
+    return req.auth
+        ? ('Credentials ' + req.auth.user + ':' + req.auth.password + ' rejected')
+        : 'No credentials provided'
+}
 const app = express()
 app.use(cors())
-app.use('/fs', index(root))
-app.use('/fs', express.static(root))
+const auth = httpAuth.basic({
+    realm: "PWAudio",
+    file: __dirname + "/users.htpasswd"
+})
+app.use('/fs', httpAuth.connect(auth), index(root), express.static(root))
 app.use(express.static('build/esm-bundled'))
 app.listen(port, () => console.log(`PWA Audio player backend listening on port ${port}!`))

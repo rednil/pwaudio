@@ -141,40 +141,15 @@ class MyView1 extends connect(store)(PageViewElement) {
                     display: flex;
                     justify-content: space-between;
                 }
-                .buttons > button {
+                .buttons button {
                     flex:1;
                     cursor: pointer;
                     height: 1.5em;
                     font-size: 2em;  /* Preferred icon size */
-                    
                 }
                 .button:last-child {
                     margin-right: 0;
                 }
-                .material-icons {
-                    font-family: 'Material Icons';
-                    font-weight: normal;
-                    font-style: normal;
-                    
-                    display: inline-block;
-                    line-height: 1;
-                    text-transform: none;
-                    letter-spacing: normal;
-                    word-wrap: normal;
-                    white-space: nowrap;
-                    direction: ltr;
-                  
-                    /* Support for all WebKit browsers. */
-                    -webkit-font-smoothing: antialiased;
-                    /* Support for Safari and Chrome. */
-                    text-rendering: optimizeLegibility;
-                  
-                    /* Support for Firefox. */
-                    -moz-osx-font-smoothing: grayscale;
-                  
-                    /* Support for IE. */
-                    font-feature-settings: 'liga';
-                  }
                 .workaround {
                     width: 1em;
                     display: block;
@@ -219,6 +194,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                     <button class="material-icons" @click=${() => store.dispatch(next())}>skip_next</button>
                     <button class="material-icons" @click=${() => store.dispatch(reload())}>refresh</button>
                     <button class="material-icons ${this._offline ? 'offline' : ''}" @click=${this._toggleCachedOnly}><span class="workaround">${this._cachedOnly ? 'wifi_off' : 'wifi_on'}</span></button>
+                    <a href="settings"><button class="material-icons">menu</button></a>
                 </div>
                 <audio
                     autoplay
