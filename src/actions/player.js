@@ -114,6 +114,12 @@ export const toggleIndex = entry => async (dispatch, getState) => {
     }
 }
 
+export const clearCache = () => {
+    console.log('clearCache')
+    Dexie.delete('pwa-music-player')
+    location.reload()
+}
+
 export const select = (entryOrId) => {
     return async function(dispatch) {
         const {id, entry} = await getEntryAndId(entryOrId)

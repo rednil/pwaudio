@@ -30,6 +30,10 @@ import './counter-element.js';
 // These are the shared styles needed by this element.
 import { SharedStyles } from './shared-styles.js';
 
+import {
+    clearCache
+} from '../actions/player.js'
+
 class MyView2 extends connect(store)(PageViewElement) {
   static get properties() {
     return {
@@ -91,12 +95,13 @@ class MyView2 extends connect(store)(PageViewElement) {
             <div class="content">
                 <div>
                     <label for="reset">Clear Cache</label>
-                    <button id="reset">Reset</button>
+                    <button @click=${this._reset} id="reset">Reset</button>
                 </div>
                 <div>
                     <label for="cachesize">Cache Size</label>
-                    <select id="cachesize" >
+                    <select @change=${this._setCacheSize} id="cachesize" >
                         <option>500 MB</option>
+                        <option>1 GB</option>
                     </select>
                 </div>
             </div>
@@ -104,12 +109,13 @@ class MyView2 extends connect(store)(PageViewElement) {
     `;
   }
 
-  _counterIncremented() {
-    store.dispatch(increment());
+  _reset() {
+      console.log('reset')
+      store.dispatch(clearCache())
   }
 
-  _counterDecremented() {
-    store.dispatch(decrement());
+  _setCacheSize() {
+        console.log('setCacheSize')
   }
 
   // This is called every time something is updated in the store.
