@@ -6,7 +6,6 @@ var argv = require('minimist')(process.argv.slice(2))
 const root = argv.v || '/fs'
 const port = argv.p || 80
 
-console.log(Buffer.from('$apr1$L58g0SxF$v3OVwcUQAw5MEmGgGnt/a.', 'base64').toString())
 /*
 const getType = (dirent) => {
     if(dirent.isFile()) return 'File'

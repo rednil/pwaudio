@@ -235,6 +235,21 @@ const isIndex = entry => entry.name == 'index.html'
 const audioFileExtensions = ['ogg', 'mp3']
 const isAudioFileOrFolder = entry => ((entry.name.slice(-1) == '/') || audioFileExtensions.includes(getExtension(entry.name)))
 
+// Reproduce:
+// Log in using chrome, than change password, restart server, open directory that is NOT cached yet =>
+// 401 response without basic auth popup. Firefox opens auth popup as expected.
+const serviceWorkerAuthChangedHack = () => {
+    navigator.serviceWorker.getRegistrations().then(
+        function(registrations) {
+            for(let registration of registrations) {
+                console.log('unregister', registration)
+                registration.unregister();
+            }
+            location.reload()
+        }
+    )
+}
+
 async function fetchDir(id, oldDir) {
     const parents = await getParents(id, true)
     const parent = parents[parents.length-1]
@@ -242,6 +257,7 @@ async function fetchDir(id, oldDir) {
     let response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
     if(response.status != 200) {
         console.error('fetchDir error', response.status, response.error)
+        if(response.status == 401) serviceWorkerAuthChangedHack()
         return []
     }
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
