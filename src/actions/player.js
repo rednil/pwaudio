@@ -244,14 +244,13 @@ const isAudioFileOrFolder = entry => ((entry.name.slice(-1) == '/') || audioFile
 // Reproduce:
 // Log in using chrome, than change password, restart server, open directory that is NOT cached yet =>
 // 401 response without basic auth popup. Firefox opens auth popup as expected.
-const serviceWorkerAuthChangedHack = () => {
-    navigator.serviceWorker.getRegistrations().then(
+async function serviceWorkerAuthChangedHack () {
+    return navigator.serviceWorker.getRegistrations().then(
         function(registrations) {
             for(let registration of registrations) {
                 console.log('unregister', registration)
                 registration.unregister();
             }
-            location.reload()
         }
     )
 }
@@ -263,7 +262,10 @@ async function fetchDir(id, oldDir) {
     let response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
     if(response.status != 200) {
         console.error('fetchDir error', response.status, response.error)
-        if(response.status == 401) serviceWorkerAuthChangedHack()
+        if(response.status == 401) {
+            await serviceWorkerAuthChangedHack()
+            location.reload()
+        }
         return []
     }
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
@@ -333,6 +335,10 @@ async function getBlob(entry, dispatch, getState) {
             await putBlob(id, blob) 
         }
         catch(error) {
+            if(error == 401) {
+                await serviceWorkerAuthChangedHack()
+                return getBlob(entry, dispatch, getState)
+            }
             isCached = false
             console.error('getBlob error', error)
             const msg = error + ' ' + (getState().app.offline ? 'offline' : 'online')
@@ -474,7 +480,7 @@ const fixSummary = async (entryOrId) => {
 }
 async function fetchBlob(url) {
 	return new Promise((resolve, reject) => {
-	    var xhr = new XMLHttpRequest()
+        var xhr = new XMLHttpRequest()
         xhr.open('GET', url, true)
         xhr.responseType = 'blob'
         xhr.onload = function() {
