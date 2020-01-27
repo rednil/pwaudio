@@ -36,15 +36,15 @@ const loadPage = (page) => (dispatch) => {
         else {
             const {protocol, hostname, port} = window.location
             const server = ''//(port == 3000) ? `${protocol}//${hostname}:3001` : ''
-            dispatch(setServer(server + '/fs/'))
+            dispatch(setServer(server + '/api/v1/fs/'))
         }
       })
       break;
     case 'settings':
       import('../components/my-view2.js');
       break;
-    case 'view3':
-      import('../components/my-view3.js');
+    case 'auth':
+      import('../components/my-view2.js');
       break;
     default:
       page = 'view404';

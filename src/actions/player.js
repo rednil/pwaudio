@@ -241,33 +241,23 @@ const isIndex = entry => entry.name == 'index.html'
 const audioFileExtensions = ['ogg', 'mp3']
 const isAudioFileOrFolder = entry => ((entry.name.slice(-1) == '/') || audioFileExtensions.includes(getExtension(entry.name)))
 
-// Reproduce:
-// Log in using chrome, than change password, restart server, open directory that is NOT cached yet =>
-// 401 response without basic auth popup. Firefox opens auth popup as expected.
-async function serviceWorkerAuthChangedHack () {
-    return navigator.serviceWorker.getRegistrations().then(
-        function(registrations) {
-            for(let registration of registrations) {
-                console.log('unregister', registration)
-                registration.unregister();
-            }
-        }
-    )
-}
-
 async function fetchDir(id, oldDir) {
     const parents = await getParents(id, true)
     const parent = parents[parents.length-1]
     const url = await id2url(id)
-    let response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
+    let response = {}
+    try{
+        response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
+    }
+    catch(e){
+        console.error('fetchDir exception', e)
+    }
+    if(response.status == 401) location.href="/api/v1/auth/login.html"
     if(response.status != 200) {
-        console.error('fetchDir error', response.status, response.error)
-        if(response.status == 401) {
-            await serviceWorkerAuthChangedHack()
-            location.reload()
-        }
+        console.error('fetchDir error', response)
         return []
     }
+    console.log('fetch response', response)
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     const index = content.find(isIndex)
@@ -335,10 +325,6 @@ async function getBlob(entry, dispatch, getState) {
             await putBlob(id, blob) 
         }
         catch(error) {
-            if(error == 401) {
-                await serviceWorkerAuthChangedHack()
-                return getBlob(entry, dispatch, getState)
-            }
             isCached = false
             console.error('getBlob error', error)
             const msg = error + ' ' + (getState().app.offline ? 'offline' : 'online')
@@ -489,6 +475,7 @@ async function fetchBlob(url) {
                 resolve(blob)
             }
             else {
+                //if(this.status == 401) location.reload()
                 reject(this.status)
                 console.error('XMLHttpRequest Status', this.status)
             }

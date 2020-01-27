@@ -109,7 +109,7 @@ class MyApp extends connect(store)(LitElement) {
       <main role="main" class="main-content">
         <my-view1 class="page" ?active="${this._page === 'player'}"></my-view1>
         <my-view2 class="page" ?active="${this._page === 'settings'}"></my-view2>
-        <my-view3 class="page" ?active="${this._page === 'view3'}"></my-view3>
+        <my-view3 class="page" ?active="${this._page === 'auth'}"></my-view3>
         <my-view404 class="page" ?active="${this._page === 'view404'}"></my-view404>
       </main>
 
