@@ -10,7 +10,7 @@
     "watch": "browser-sync start --proxy localhost:8080 --open --files \"src/**/*.js\" \"index.html\"",
     "start": "npm run start:backend | npm run start:frontend",
     "start:frontend": "polymer serve --port 8080 --proxy-path=api/v1 --proxy-target=http://localhost:3001/api/v1 | npm run watch",
-    "start:backend": "node server/index.js -v /mnt/teracrypt/audio/audiobooks/de -p 3001",
+    "start:backend": "PORT=3001 node server/index.js",
     "build": "npm run build:static",
     "build:prpl": "polymer build --auto-base-path && gulp prpl-server",
     "build:static": "polymer build",

@@ -22,7 +22,6 @@ const {
     OAUTH2_USER_URL
 } = process.env
 
-console.log('env', process.env)
 if(
     !OAUTH2_URL ||
     !OAUTH2_CLIENT_ID ||
@@ -54,14 +53,16 @@ const getResponseObj = (dir) => {
 */
 const index = (FILESYSTEM_ROOT) => (req, res, next) => {
     const path = decodeURIComponent(req.path)
-    console.log('request', req.user.id, path)
     if(path.slice(-1) == '/') {
         fs.readdir(FILESYSTEM_ROOT + path, {withFileTypes: true}, (err, dir) => {
             if(!err) {
                 res.setHeader('Content-Type', 'application/json');
                 res.send(dir.map(dirent => dirent.name + (dirent.isDirectory() ? '/' : '')))
             }
-            else next()
+            else {
+                console.error(`fs.readdir(${FILESYSTEM_ROOT + path}) failed`)
+                res.status(404).end()
+            }
         })
     }
     else next()

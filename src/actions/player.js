@@ -95,6 +95,7 @@ export const setTimer = (timeout, step) => (dispatch, getState) => {
         }, step)
     }
 }
+// toggles the Description Text after clicking on the info symbol
 export const toggleIndex = entry => async (dispatch, getState) => {
     const oldId = indexIdSelector(getState())
     const newId = oldId == entry.id ? null : entry.id 
@@ -257,7 +258,7 @@ async function fetchDir(id, oldDir) {
         console.error('fetchDir error', response)
         return []
     }
-    console.log('fetch response', response)
+    //console.log('fetch response', response)
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     const index = content.find(isIndex)
@@ -558,7 +559,7 @@ const refresh = () => async function (dispatch, getState) {
     const id = folderIdSelector(getState())
     if(id) setDirectory(id)(dispatch, getState)
 }
-export const setCurrentFile = (entryOrId) => async function(dispatch, getState){
+export const setCurrentFile = (entryOrId, keepTimer) => async function(dispatch, getState){
     const {id, entry} = await getEntryAndId(entryOrId)
     dispatch({
         type: SET_CURRENT_FILE,
@@ -572,7 +573,8 @@ export const setCurrentFile = (entryOrId) => async function(dispatch, getState){
             type: SET_PLAYER_SOURCE,
             url: window.URL.createObjectURL(blob)
         })
-        dispatch(setTimer())
+        // if one file ended and we are just playing the next one, we don't want the timer to restart
+        if(!keepTimer) dispatch(setTimer())
     }
     dispatch(downloadMissing())
 }
@@ -596,9 +598,9 @@ const getNeighbour = async function (entryOrId, d, getState) {
         if (newIdx >=0 && newIdx < files.length) return files[newIdx]
     }
 }
-const skip = (d) => () => async (dispatch, getState) => {
+const skip = (d) => (keepTimer) => async (dispatch, getState) => {
     const neighbour = await getNeighbour(currentFileSelector(getState()), d, getState)
-    if(neighbour) dispatch(setCurrentFile(neighbour))
+    if(neighbour) dispatch(setCurrentFile(neighbour, keepTimer))
 }
 export const next = skip(1)
 export const last = skip(-1)

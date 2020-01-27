@@ -31,7 +31,8 @@ import {
     timerSelector,
     timeRemainingSelector,
     indexSelector,
-    indexIdSelector
+    indexIdSelector,
+    folderIdSelector
 } from '../reducers/player.js'
 
 class MyView1 extends connect(store)(PageViewElement) {
@@ -198,7 +199,7 @@ class MyView1 extends connect(store)(PageViewElement) {
                 </div>
                 <audio
                     autoplay
-                    @ended=${() => store.dispatch(next())}
+                    @ended=${() => store.dispatch(next(true))}
                     src="${this._playerSourceSelector}">
                         Your browser does not support the
                         <code>audio</code> element.
@@ -256,11 +257,12 @@ class MyView1 extends connect(store)(PageViewElement) {
         this._offline = state.app.offline,
         this._index = indexSelector(state)
         this._indexId = indexIdSelector(state)
+        this._folderId = folderIdSelector(state)
     }
-    updated(){
+    updated(changes){
         if(this._isPlaying) this._getAudioNode().play()
         else this._getAudioNode().pause()
-        if(this._lastPlayed) this.shadowRoot.querySelector('.playing').scrollIntoView({
+        if(this._lastPlayed && changes.has('_folderId')) this.shadowRoot.querySelector('.playing').scrollIntoView({
             //behavior: 'smooth',
             block: 'center'
         })
