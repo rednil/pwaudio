@@ -22,6 +22,7 @@ export const SET_MAX_CACHE_SIZE = 'SET_MAX_CACHE_SIZE'
 
 export const TYPE_FOLDER = 'Directory'
 const preload = 2
+const maxPin = 1000
 let blockDownloadMissing = false
 
 import Dexie from 'dexie'
@@ -213,10 +214,14 @@ export const pin = (entryOrId) => async function(dispatch) {
         await pinFile(entry, value)
     }
     else {
-        if(value == STATE_YES) {
+        try{
             const n = await countChildren(id)
+            if(value!=STATE_YES || n<10 || confirm(`Do you really want to download ${n} files?`))
+            await pinFolder(entry, value)
+        } catch(e) {
+            alert(`You are trying to (un)pin more than ${maxPin} files. That is too much.`)
+            return
         }
-        await pinFolder(entry, value)
     }
     await fixSummary(entry.parent)
     dispatch(refresh())
@@ -247,6 +252,7 @@ async function countChildren(id) {
     let n = files.length
     for(let i=0; i<folders.length; i++) {
         n = n + await countChildren(folders[i].id)
+        if(n>maxPin) throw ('Too many files')    
     }
     return n
 }
