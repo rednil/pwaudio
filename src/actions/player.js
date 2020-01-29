@@ -17,6 +17,8 @@ export const SET_TIMER = 'SET_TIMER'
 export const SET_TIME_REMAINING = 'SET_TIME_REMAINING'
 export const SET_INDEX_ID = 'SET_INDEX_ID'
 export const SET_INDEX = 'SET_INDEX'
+export const SET_CACHE_SIZE = 'SET_CACHE_SIZE'
+export const SET_MAX_CACHE_SIZE = 'SET_MAX_CACHE_SIZE'
 
 export const TYPE_FOLDER = 'Directory'
 const preload = 2
@@ -31,16 +33,11 @@ import {
     timerSelector,
     timeRemainingSelector,
     isPlayingSelector,
-    indexIdSelector
+    indexIdSelector,
+    maxCacheSizeSelector
 } from '../reducers/player.js'
 
 const separator = ' - '
-
-const db = new Dexie('pwa-music-player')
-db.version(1).stores({
-    tree: '++id, name, parent, cached, type, [cached+type]',
-    file: 'id, blob'
-})
 let timer
 
 if (navigator.storage && navigator.storage.persist){
@@ -49,6 +46,12 @@ if (navigator.storage && navigator.storage.persist){
         else console.log("Storage may be cleared by the UA under storage pressure.")
     })
 }
+const db = new Dexie('pwa-music-player')
+
+db.version(1).stores({
+    tree: '++id, name, parent, cached, type, [cached+type]',
+    file: 'id, blob'
+})
 
 const cachedOnlyFilter = entry => entry.cached && (entry.cached == STATE_YES) || (entry.cached == STATE_PARTIAL)
 
@@ -115,10 +118,29 @@ export const toggleIndex = entry => async (dispatch, getState) => {
     }
 }
 
-export const clearCache = () => {
-    console.log('clearCache')
+export const clearCache = () => (dispatch) => {
     Dexie.delete('pwa-music-player')
     location.reload()
+    dispatch(queryCacheSize())
+}
+
+export const queryCacheSize = () => async (dispatch) => {
+    const size = await getDbSize()
+    dispatch(setCacheSize(size))
+}
+const setCacheSize = (size) => {
+    return {
+        type: SET_CACHE_SIZE,
+        size
+    }
+}
+export const setMaxCacheSize = (size) => async (dispatch) => {
+    dispatch({
+        type: SET_MAX_CACHE_SIZE,
+        size
+    })
+    await ensureDbSmallerThan(size)
+    dispatch(queryCacheSize())
 }
 
 export const select = (entryOrId) => {
@@ -154,7 +176,10 @@ export const downloadMissing = () => async function(dispatch, getState) {
                 next.cached != STATE_YES &&
                 next.cached != STATE_ERROR &&
                 next.cached != STATE_PARTIAL
-            ) missing = next
+            ) {
+                missing = next
+                break
+            }
         }
     }
     if(!missing) {
@@ -258,7 +283,6 @@ async function fetchDir(id, oldDir) {
         console.error('fetchDir error', response)
         return []
     }
-    //console.log('fetch response', response)
     const isJson = true //response.headers.get('Content-Type').search('application/json') >= 0
     const content = await (isJson ? prepareJsonResponse(response) : webDavResponseToJson(response))
     const index = content.find(isIndex)
@@ -316,14 +340,17 @@ async function getBlob(entry, dispatch, getState) {
     const cached = await db.file.get(id)
     let blob = cached && cached.blob
     let isCached = true
+    let maxDbSize
     if(!blob) {
         try {
+            maxDbSize = maxCacheSizeSelector(getState())
             await updateEntry(id, {cached: STATE_PARTIAL, cacheTime: new Date().getTime()})
             dispatch(refresh())
             dispatch(downloadMissing())
             const url = await id2url(id)
             blob = await fetchBlob(url)
-            await putBlob(id, blob) 
+            await ensureDbSmallerThan(maxDbSize - blob.size)
+            await putBlob(id, blob, dispatch, getState)
         }
         catch(error) {
             isCached = false
@@ -339,26 +366,28 @@ async function getBlob(entry, dispatch, getState) {
             error: undefined,
             size: blob.size
         })
+    }
+    if(maxDbSize){
         dispatch(refresh())
+        await ensureDbSmallerThan(maxDbSize)
+        dispatch(queryCacheSize())
     }
     return blob
+}
+
+async function getDbSize() {
+    const fileEntries = await db.tree.where({type: TYPE_FILE, cached: STATE_YES}).toArray()
+    return fileEntries.reduce((sum, entry) => sum + (entry.size || 0), 0)
 }
 
 const toMb = num => `${Math.round(num/1000000)} MB`
 
 let freeingSpaceDoesntHelp = false
-const putBlob = async (id, blob) => {
-    const maxDbSize = 2000 * 1000000
-    const fileEntries = await db.tree.where({type: TYPE_FILE, cached: STATE_YES}).toArray()
-    let dbSize = fileEntries.reduce((sum, entry) => sum + (entry.size || 0), 0)
-    while ((dbSize + blob.size) > maxDbSize) {
-        dbSize -= await freeSpace(fileEntries)
-    }
+const putBlob = async (id, blob, dispatch, getState) => {
     let spaceFreed = 0
-    let sumSpaceFreed = 0
     do {
         try {
-            spaceFreed = 0
+            
             await db.file.put({id, blob})
             // successfully dumped a file, clear all damage prevention flags
             blockDownloadMissing = false
@@ -368,14 +397,15 @@ const putBlob = async (id, blob) => {
             // never managed to produce a distinct "out of space" error in Chrome,
             // so catch ALL exceptions, try to free space and trigger some damage prevention
             // if it doesn't help (dont try again in this browser session)
-            if(sumSpaceFreed >= blob.size) freeingSpaceDoesntHelp = true
+            if(spaceFreed >= blob.size) freeingSpaceDoesntHelp = true
             if(freeingSpaceDoesntHelp) {
                 blockDownloadMissing = true
+                dispatch(queryCacheSize())
                 throw(e)
             }
             else {
-                spaceFreed = await freeSpace(fileEntries)
-                sumSpaceFreed += spaceFreed
+                dbSize = await getDbSize()
+                spaceFreed = await ensureDbSmallerThan(dbSize - blob.size)
             }
         }
     } while (spaceFreed)
@@ -383,16 +413,26 @@ const putBlob = async (id, blob) => {
 
 const pinnedElevator = (entry => entry.cacheTime - (entry.pinned == STATE_YES ? 0 : 1000000000000))
 let pinDeletePermission
-const freeSpace = async (entries) => {
+const ensureDbSmallerThan = async (size) => {
+    let dbSize = await getDbSize()
+    let spaceFreed = 0
+    if(dbSize <= size) return dbSize
+    let entries = await db.tree.where({type: TYPE_FILE, cached: STATE_YES}).toArray()
     // sort descending cacheTime, pinned first
     entries = entries.sort((a,b) => pinnedElevator(b) - pinnedElevator(a))
-    const entry = entries.pop()
-    if(getDeletePermission(entry)) {
-        await remove(entry)
-        return entry.size
+    while ((dbSize > size) && entries.length) {
+        const entry = entries.pop()
+        if(getDeletePermission(entry)) {
+            await remove(entry)
+            dbSize -= entry.size
+            spaceFreed += entry.size
+        }
+        else {
+            blockDownloadMissing = true
+            break
+        }
     }
-    blockDownloadMissing = true
-    throw(`unable to free space (PinDeletePermission: ${pinDeletePermission})`)
+    return spaceFreed
 }
 
 const remove = async (entryOrId) => {

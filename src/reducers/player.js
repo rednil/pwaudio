@@ -5,6 +5,8 @@ import {
     SET_PLAYING,
     SET_PLAYER_SOURCE,
     SET_TIMER,
+    SET_CACHE_SIZE,
+    SET_MAX_CACHE_SIZE,
     SET_TIME_REMAINING,
     TOGGLE_CACHED_ONLY,
     SET_INDEX_ID,
@@ -20,7 +22,9 @@ const INITIAL_STATE = {
   isPlaying: false,
   timerStep: 60000,
   timer: 0,
-  timeRemaining: 0
+  timeRemaining: 0,
+  cacheSize: 0,
+  maxCacheSize: localStorage.getItem('maxCacheSize') || (500 * 1000000)
 }
 
 const player = (state = INITIAL_STATE, action) => {
@@ -57,6 +61,17 @@ const player = (state = INITIAL_STATE, action) => {
         return {
             ...state,
             isPlaying: action.bool
+        }
+    case SET_CACHE_SIZE:
+        return {
+            ...state,
+            cacheSize: action.size
+        }
+    case SET_MAX_CACHE_SIZE:
+        localStorage.setItem('maxCacheSize', action.size)
+        return {
+            ...state,
+            maxCacheSize: action.size
         }
     case TOGGLE_CACHED_ONLY:
         return {
@@ -105,3 +120,5 @@ export const timeRemainingSelector = state => state.player.timeRemaining
 export const timerStepSelector = state => state.player.timerStep
 export const indexIdSelector = state => state.player.indexId
 export const indexSelector = state => state.player.index
+export const cacheSizeSelector = state => state.player.cacheSize
+export const maxCacheSizeSelector = state => state.player.maxCacheSize
