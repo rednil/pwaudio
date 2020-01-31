@@ -27,7 +27,7 @@ export const navigate = (path) => (dispatch) => {
 const loadPage = (page) => (dispatch) => {
   switch(page) {
     case 'player':
-      import('../components/my-view1.js').then((module) => {
+      import('../components/pwa-player.js').then((module) => {
         // Put code in here that you want to run every time when
         // navigating to view1 after my-view1.js is loaded.
         //console.log('hash', decodeURIComponent(window.location.hash))
@@ -41,10 +41,7 @@ const loadPage = (page) => (dispatch) => {
       })
       break;
     case 'settings':
-      import('../components/my-view2.js');
-      break;
-    case 'auth':
-      import('../components/my-view2.js');
+      import('../components/pwa-settings.js');
       break;
     default:
       page = 'view404';

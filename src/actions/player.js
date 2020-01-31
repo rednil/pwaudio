@@ -58,7 +58,7 @@ const cachedOnlyFilter = entry => entry.cached && (entry.cached == STATE_YES) ||
 
 const setDirectory = (id, discardCache) => async function(dispatch, getState) {
     const dir = await getDir(id, discardCache, getState)
-    const parents = await getParents(id, true)
+    const parents = await getParents(id, true, true)
     dispatch({
         type: SET_DIRECTORY,
         id,
@@ -144,19 +144,18 @@ export const setMaxCacheSize = (size) => async (dispatch) => {
     dispatch(queryCacheSize())
 }
 
-export const select = (entryOrId) => {
-    return async function(dispatch) {
-        const {id, entry} = await getEntryAndId(entryOrId)
-        if(!entry) return window.location.hash = ''
-        if(isFolder(entry)) {
-            dispatch({
-                type: SELECT_FOLDER,
-                id
-            })
-            dispatch(setDirectory(id))
-        }
-        else dispatch(setCurrentFile(id))
+export const select = (entryOrId) => async (dispatch) => {
+    const {id, entry} = await getEntryAndId(entryOrId)
+    if(!entry) return window.location.hash = ''
+    if(isFolder(entry)) {
+        dispatch({
+            type: SELECT_FOLDER,
+            id
+        })
+        remember(entry, 'lastSelected')
+        dispatch(setDirectory(id))
     }
+    else dispatch(setCurrentFile(id))
 }
 export const reload = () => (dispatch, getState) => {
     setDirectory(folderIdSelector(getState()), true)(dispatch, getState)
@@ -611,7 +610,7 @@ export const setCurrentFile = (entryOrId, keepTimer) => async function(dispatch,
         type: SET_CURRENT_FILE,
         id
     })
-    await rememberLastPlayed(entry)
+    await remember(entry, 'lastPlayed')
     dispatch(refresh())
     const blob = await getBlob(entry, dispatch, getState)
     if(blob) {
@@ -624,15 +623,15 @@ export const setCurrentFile = (entryOrId, keepTimer) => async function(dispatch,
     }
     dispatch(downloadMissing())
 }
-async function rememberLastPlayed (entryOrId) {
+async function remember (entryOrId, key) {
     const {id, entry} = await getEntryAndId(entryOrId)
     if(!entry.parent) return
     const parentEntry = await db.tree.get(entry.parent)
-    if(parentEntry.lastPlayed != id) {
-        parentEntry.lastPlayed = id
-        db.tree.put(parentEntry)
+    if(parentEntry[key] != id) {
+        parentEntry[key] = id
+        await db.tree.put(parentEntry)
     }
-    await rememberLastPlayed(parentEntry)
+    await remember(parentEntry, key)
 }
 const getNeighbour = async function (entryOrId, d, getState) {
     const {id, entry} = await getEntryAndId(entryOrId)

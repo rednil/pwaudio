@@ -107,7 +107,6 @@ const player = (state = INITIAL_STATE, action) => {
 }
 
 export default player
-export const lastPlayedSelector = state => state.player.parents && state.player.parents.length && state.player.parents[state.player.parents.length-1].lastPlayed
 export const contentSelector = state => state.player.dir
 export const currentFileSelector = state => state.player.currentFile
 export const isPlayingSelector = state => state.player.isPlaying
