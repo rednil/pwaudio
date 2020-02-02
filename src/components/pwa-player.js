@@ -263,7 +263,8 @@ class PwaPlayer extends connect(store)(PageViewElement) {
     updated(changes){
         if(this._isPlaying) this._getAudioNode().play()
         else this._getAudioNode().pause()
-        if(this._lastSelected && changes.has('_content')) this.shadowRoot.querySelector('.lastSelected').scrollIntoView({
+        const scrollIntoView = this._lastSelected ? '.lastSelected' : (this._lastPlayed ? '.lastPlayed' : false)
+        if(scrollIntoView && changes.has('_content')) this.shadowRoot.querySelector(scrollIntoView).scrollIntoView({
             //behavior: 'smooth',
             block: 'center'
         })

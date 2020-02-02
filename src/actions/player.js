@@ -283,7 +283,7 @@ async function fetchDir(id, oldDir) {
     catch(e){
         console.error('fetchDir exception', e)
     }
-    if(response.status == 401) location.href="/api/v1/auth/login.html"
+    checkAuthStatus(response)
     if(response.status != 200) {
         console.error('fetchDir error', response)
         return []
@@ -521,7 +521,7 @@ async function fetchBlob(url) {
                 resolve(blob)
             }
             else {
-                //if(this.status == 401) location.reload()
+                checkAuthStatus(this)
                 reject(this.status)
                 console.error('XMLHttpRequest Status', this.status)
             }
@@ -533,6 +533,14 @@ async function fetchBlob(url) {
         xhr.send()
     })
 }
+
+const checkAuthStatus = (request) => {
+    if(request.status == 401) {
+        location.href="/api/v1/auth/login.html"
+        return true
+    }
+}
+
 async function prepareJsonResponse(response) {
     const json = await response.json()
     return json.map(name => { return {name}})
