@@ -46,8 +46,9 @@ jobs:
         [ "$VERSION" == "master" ] && VERSION=latest
         echo IMAGE_ID=$IMAGE_ID
         echo VERSION=$VERSION
-        docker tag image $IMAGE_ID:${{ steps.autotag.outputs.version }} $IMAGE_ID:$VERSION
-        docker push $IMAGE_ID
+        docker tag image $IMAGE_ID:${{ steps.autotag.outputs.version }}
+        docker tag image $IMAGE_ID:$VERSION
+        docker push $IMAGE_ID:$VERSION
         #docker push $IMAGE_ID:${{ steps.autotag.outputs.version }}
         #docker tag image $IMAGE_ID:$VERSION
         #docker push $IMAGE_ID:$VERSION
