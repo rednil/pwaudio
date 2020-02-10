@@ -13,6 +13,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - uses: butlerlogic/action-autotag@stable
+      with:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v1
       with:
@@ -41,8 +44,10 @@ jobs:
         [ "$VERSION" == "master" ] && VERSION=latest
         echo IMAGE_ID=$IMAGE_ID
         echo VERSION=$VERSION
+        docker tag image $IMAGE_ID:0.8.0
         docker tag image $IMAGE_ID:$VERSION
         docker push $IMAGE_ID:$VERSION
+        docker push $IMAGE_ID:0.8.0
       env:
         CI: true
         IMAGE_NAME: server
