@@ -21,8 +21,8 @@ const INITIAL_STATE = {
   currentFile: null,
   isPlaying: false,
   timerStep: 60000,
-  timer: 0,
-  timeRemaining: 0,
+  timer: localStorage.getItem('timer') || 0,
+  timeRemaining: localStorage.getItem('timer') || 0,
   cacheSize: 0,
   maxCacheSize: localStorage.getItem('maxCacheSize') || (500 * 1000000)
 }
@@ -79,6 +79,7 @@ const player = (state = INITIAL_STATE, action) => {
             cachedOnly: !state.cachedOnly
         }
     case SET_TIMER:
+        localStorage.setItem('timer', action.timeout)
         return {
             ...state,
             timer: action.timeout,
