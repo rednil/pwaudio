@@ -49,7 +49,7 @@ jobs:
         docker tag image $IMAGE_ID:${{ steps.autotag.outputs.version }}
         docker tag image $IMAGE_ID:$VERSION
         docker push $IMAGE_ID:$VERSION
-        #docker push $IMAGE_ID:${{ steps.autotag.outputs.version }}
+        docker push $IMAGE_ID:${{ steps.autotag.outputs.version }}
         #docker tag image $IMAGE_ID:$VERSION
         #docker push $IMAGE_ID:$VERSION
         
