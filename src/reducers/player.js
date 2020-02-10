@@ -12,7 +12,6 @@ import {
     SET_INDEX_ID,
     SET_INDEX
 } from '../actions/player.js'
-import { createSelector } from 'reselect'
 
 const INITIAL_STATE = {
   id: null,
