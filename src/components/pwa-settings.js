@@ -33,12 +33,15 @@ const kb = 1000
 const mb = 1000000
 const gb = 1000000000
 const options = [100*mb, 500*mb, 1*gb, 2*gb, 5*gb]
+
+
 class PwaSettings extends connect(store)(PageViewElement) {
   static get properties() {
     return {
       // This is the data from the store.
       _cacheSize: { type: Number },
-      _maxCacheSize: { type: Number }
+      _maxCacheSize: { type: Number },
+      version: { type: String }
     };
   }
 
@@ -95,6 +98,7 @@ class PwaSettings extends connect(store)(PageViewElement) {
     return html`
         <div class="head">
             <a href="javascript:history.back()"><button class="material-icons">menu_open</button></a>
+            <span>${this.version}</span>
         </div>
         <div class="canvas">
             <div class="content">
@@ -123,8 +127,13 @@ class PwaSettings extends connect(store)(PageViewElement) {
     store.dispatch(clearCache())
   }
   constructor(){
-      super()
-      store.dispatch(queryCacheSize())
+    super()
+    store.dispatch(queryCacheSize())
+    fetch('/package.json', { method: 'GET' })
+    .then(response => response.json())
+    .then(json => {
+        this.version = json.version
+    })
   }
   _setMaxCacheSize(evt) {
     const size = options[evt.path[0].selectedIndex]
