@@ -3,7 +3,7 @@
 
 # Progressive Web Audio Player
 
-A minimalistic node server and PWA to play audio files online (or cache them for offline use). It currently authenticates via OAUTH2 with a nextcloud instance.
+A minimalistic node server and PWA to play audio files online (or cache them for offline use). It currently authenticates via OAUTH2 with a Nextcloud instance.
 
 # Features
 
