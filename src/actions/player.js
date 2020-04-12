@@ -19,9 +19,10 @@ export const SET_INDEX_ID = 'SET_INDEX_ID'
 export const SET_INDEX = 'SET_INDEX'
 export const SET_CACHE_SIZE = 'SET_CACHE_SIZE'
 export const SET_MAX_CACHE_SIZE = 'SET_MAX_CACHE_SIZE'
+export const SET_PREFETCH = 'SET_PREFETCH'
 
 export const TYPE_FOLDER = 'Directory'
-const preload = 2
+
 const maxPin = 1000
 let blockDownloadMissing = false
 
@@ -144,6 +145,11 @@ export const setMaxCacheSize = (size) => async (dispatch) => {
     dispatch(queryCacheSize())
 }
 
+export const setPrefetch = (n) => ({
+  type: SET_PREFETCH,
+  prefetch: n
+})
+
 export const select = (entryOrId) => async (dispatch) => {
     const {id, entry} = await getEntryAndId(entryOrId)
     if(!entry) return window.location.hash = ''
@@ -168,8 +174,10 @@ export const downloadMissing = () => async function(dispatch, getState) {
     concurrentRequests +=1
     let missing
     const current = currentFileSelector(getState())
+    const prefetch = getState().player.prefetch
+    
     if(current) {
-        for(let i=1; i<preload+1; i++) {
+        for(let i=1; i<prefetch+1; i++) {
             const next = await getNeighbour(current, i, getState)
             if(
                 next &&

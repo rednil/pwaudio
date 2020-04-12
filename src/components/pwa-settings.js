@@ -21,7 +21,8 @@ import { SharedStyles } from './shared-styles.js';
 import {
     clearCache,
     queryCacheSize,
-    setMaxCacheSize
+    setMaxCacheSize,
+    setPrefetch
 } from '../actions/player.js'
 
 import {
@@ -33,6 +34,7 @@ const kb = 1000
 const mb = 1000000
 const gb = 1000000000
 const options = [100*mb, 500*mb, 1*gb, 2*gb, 5*gb]
+const prefetchOptions = [1, 2, 3, 5, 10, 20]
 
 
 class PwaSettings extends connect(store)(PageViewElement) {
@@ -41,8 +43,9 @@ class PwaSettings extends connect(store)(PageViewElement) {
       // This is the data from the store.
       _cacheSize: { type: Number },
       _maxCacheSize: { type: Number },
+      _prefetch: { type: Number },
       version: { type: String }
-    };
+    }
   }
 
   static get styles() {
@@ -103,6 +106,14 @@ class PwaSettings extends connect(store)(PageViewElement) {
         <div class="canvas">
             <div class="content">
                 <div>
+                    <label for="cachesize">Prefetch</label>
+                    <select @change=${this._setPrefetch} id="cachesize" >
+                        ${prefetchOptions.map(option => html`
+                            <option ?selected=${this._prefetch == option}>${option} Tracks</option>
+                        `)}
+                    </select>
+                </div>
+                <div>
                     <label for="cachesize">Max Cache Size</label>
                     <select @change=${this._setMaxCacheSize} id="cachesize" >
                         ${options.map(option => html`
@@ -139,6 +150,10 @@ class PwaSettings extends connect(store)(PageViewElement) {
     const size = options[evt.path[0].selectedIndex]
     store.dispatch(setMaxCacheSize(size))
   }
+  _setPrefetch(evt) {
+    console.log('setPrefetch', prefetchOptions[evt.path[0].selectedIndex])
+    store.dispatch(setPrefetch(prefetchOptions[evt.path[0].selectedIndex]))
+  }
   _beautify(size) {
       if (size < kb) return size + ' Bytes'
       if (size < mb) return Math.round(size/kb) + ' KB'
@@ -150,6 +165,7 @@ class PwaSettings extends connect(store)(PageViewElement) {
   stateChanged(state) {
     this._cacheSize = cacheSizeSelector(state)
     this._maxCacheSize = maxCacheSizeSelector(state)
+    this._prefetch = state.player.prefetch
   }
 }
 

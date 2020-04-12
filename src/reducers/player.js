@@ -10,13 +10,15 @@ import {
     SET_TIME_REMAINING,
     TOGGLE_CACHED_ONLY,
     SET_INDEX_ID,
-    SET_INDEX
+    SET_INDEX,
+    SET_PREFETCH
 } from '../actions/player.js'
 
 const INITIAL_STATE = {
   id: null,
   dir: [],
   parents: [],
+  prefetch: localStorage.getItem('prefetch') || 3,
   currentFile: null,
   isPlaying: false,
   timerStep: 60000,
@@ -101,6 +103,13 @@ const player = (state = INITIAL_STATE, action) => {
             ...state,
             index: action.index
         }
+    case SET_PREFETCH:
+      const prefetch = Number(action.prefetch)
+      localStorage.setItem('prefetch', prefetch)
+      return {
+          ...state,
+          prefetch
+      }
     default:
       return state
   }

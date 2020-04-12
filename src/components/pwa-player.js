@@ -232,6 +232,7 @@ class PwaPlayer extends connect(store)(PageViewElement) {
         return {
             _cachedOnly: { type: Boolean },
             _lastPlayed: { type: String },
+            _lastSelected: { type: String },
             _currentFile: { type: String },
             _playerSourceSelector: { type: String },
             _content: { type: Array },
@@ -263,11 +264,13 @@ class PwaPlayer extends connect(store)(PageViewElement) {
     updated(changes){
         if(this._isPlaying) this._getAudioNode().play()
         else this._getAudioNode().pause()
-        const scrollIntoView = this._lastSelected ? '.lastSelected' : (this._lastPlayed ? '.lastPlayed' : false)
-        if(scrollIntoView && changes.has('_content')) this.shadowRoot.querySelector(scrollIntoView).scrollIntoView({
+        if(changes.has('_lastPlayed') || changes.has('_lastSelected')){
+          const scrollIntoView = this._lastSelected ? '.lastSelected' : (this._lastPlayed ? '.lastPlayed' : false)
+          if(scrollIntoView) this.shadowRoot.querySelector(scrollIntoView).scrollIntoView({
             //behavior: 'smooth',
             block: 'center'
-        })
+          })
+        }
     }
     _getAudioNode() {
         return this.shadowRoot.querySelector('audio')
@@ -345,5 +348,5 @@ class PwaPlayer extends connect(store)(PageViewElement) {
         
     }
 }
-const timers = [0, 15, 30, 60]
+const timers = [0, 15, 30, 45, 60]
 window.customElements.define('pwa-player', PwaPlayer)
