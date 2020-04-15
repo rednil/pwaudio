@@ -108,7 +108,7 @@ class PwaApp extends connect(store)(LitElement) {
       <!-- Main content -->
       <main role="main" class="main-content">
         <pwa-player class="page" ?active="${this._page === 'player'}"></pwa-player>
-        <pwa-settings class="page" ?active="${this._page === 'settings'}"></pwa-settinga>
+        <pwa-settings class="page" ?active="${this._page === 'settings'}"></pwa-settings>
         <my-view404 class="page" ?active="${this._page === 'view404'}"></my-view404>
       </main>
 

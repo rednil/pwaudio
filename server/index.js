@@ -77,7 +77,7 @@ const protectApi = (req, res, next) => {
 
 const authSuccess = (req, res) => {
     // Successful authentication, redirect home.
-    res.redirect('/')
+    res.redirect('/authenticated')
 }
 
 passport.serializeUser(function(user, done) {

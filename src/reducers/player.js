@@ -18,14 +18,14 @@ const INITIAL_STATE = {
   id: null,
   dir: [],
   parents: [],
-  prefetch: localStorage.getItem('prefetch') || 3,
+  prefetch: Number(localStorage.getItem('prefetch') || 3),
   currentFile: null,
   isPlaying: false,
   timerStep: 60000,
-  timer: localStorage.getItem('timer') || 0,
-  timeRemaining: localStorage.getItem('timer') || 0,
+  timer: Number(localStorage.getItem('timer') || 0),
+  timeRemaining: Number(localStorage.getItem('timer') || 0),
   cacheSize: 0,
-  maxCacheSize: localStorage.getItem('maxCacheSize') || (500 * 1000000)
+  maxCacheSize: Number(localStorage.getItem('maxCacheSize') || (500 * 1000000))
 }
 
 const player = (state = INITIAL_STATE, action) => {
@@ -47,68 +47,68 @@ const player = (state = INITIAL_STATE, action) => {
         index: undefined
       }
     case SET_CURRENT_FILE:
-        return {
-            ...state,
-            currentFile: action.id,
-            //isPlaying: true
-        }
+      return {
+        ...state,
+        currentFile: action.id,
+        //isPlaying: true
+      }
     case SET_PLAYER_SOURCE:
-        return {
-            ...state,
-            playerSource: action.url,
-            isPlaying: true
-        }
+      return {
+        ...state,
+        playerSource: action.url,
+        isPlaying: true
+      }
     case SET_PLAYING:
-        return {
-            ...state,
-            isPlaying: action.bool
-        }
+      return {
+        ...state,
+        isPlaying: action.bool
+      }
     case SET_CACHE_SIZE:
-        return {
-            ...state,
-            cacheSize: action.size
-        }
+      return {
+        ...state,
+        cacheSize: action.size
+      }
     case SET_MAX_CACHE_SIZE:
-        localStorage.setItem('maxCacheSize', action.size)
-        return {
-            ...state,
-            maxCacheSize: action.size
-        }
+      localStorage.setItem('maxCacheSize', action.size)
+      return {
+        ...state,
+        maxCacheSize: action.size
+      }
     case TOGGLE_CACHED_ONLY:
-        return {
-            ...state,
-            cachedOnly: !state.cachedOnly
-        }
+      return {
+        ...state,
+        cachedOnly: !state.cachedOnly
+      }
     case SET_TIMER:
-        localStorage.setItem('timer', action.timeout)
-        return {
-            ...state,
-            timer: action.timeout,
-            timeRemaining: action.timeout,
-            timerStep: action.step
-        }
+      localStorage.setItem('timer', action.timeout)
+      return {
+        ...state,
+        timer: action.timeout,
+        timeRemaining: action.timeout,
+        timerStep: action.step
+      }
     case SET_TIME_REMAINING:
-        return {
-            ...state,
-            timeRemaining: action.timeRemaining
-        }
+      return {
+        ...state,
+        timeRemaining: action.timeRemaining
+      }
     case SET_INDEX_ID:
-        return {
-            ...state,
-            indexId: action.id,
-            index: undefined
-        }
+      return {
+        ...state,
+        indexId: action.id,
+        index: undefined
+      }
     case SET_INDEX:
-        return {
-            ...state,
-            index: action.index
-        }
+      return {
+        ...state,
+        index: action.index
+      }
     case SET_PREFETCH:
       const prefetch = Number(action.prefetch)
       localStorage.setItem('prefetch', prefetch)
       return {
-          ...state,
-          prefetch
+        ...state,
+        prefetch
       }
     default:
       return state

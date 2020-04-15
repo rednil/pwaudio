@@ -34,6 +34,8 @@ import {
     folderIdSelector
 } from '../reducers/player.js'
 
+const timers = [0, 15, 30, 45, 60]
+
 class PwaPlayer extends connect(store)(PageViewElement) {
     static get styles() {
         return [
@@ -262,7 +264,13 @@ class PwaPlayer extends connect(store)(PageViewElement) {
         this._lastSelected = this._parent && this._parent.lastSelected
     }
     updated(changes){
-        if(this._isPlaying) this._getAudioNode().play()
+        if(this._isPlaying) {
+          try{
+            this._getAudioNode().play()
+          }catch(e){
+            this._togglePlaying()
+          }
+        }
         else this._getAudioNode().pause()
         if(changes.has('_lastPlayed') || changes.has('_lastSelected')){
           const scrollIntoView = this._lastSelected ? '.lastSelected' : (this._lastPlayed ? '.lastPlayed' : false)
@@ -307,8 +315,8 @@ class PwaPlayer extends connect(store)(PageViewElement) {
         if(idx == null) return
         const entry = this._parents[idx]
         if(!this._pinCacheClickHandler(evt, entry)){
-            const dHistory = idx - this._parents.length + 1
-            window.history.go(dHistory)
+            const dHistory = idx - this._parents.length + 2
+            if(dHistory < 0) window.history.go(dHistory)
         }
     }
     _toggleTimer(){
@@ -348,5 +356,5 @@ class PwaPlayer extends connect(store)(PageViewElement) {
         
     }
 }
-const timers = [0, 15, 30, 45, 60]
+
 window.customElements.define('pwa-player', PwaPlayer)

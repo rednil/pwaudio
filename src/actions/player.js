@@ -40,7 +40,7 @@ import {
 } from '../reducers/player.js'
 
 const separator = ' - '
-let timer
+let timer, authWindow, loginPromise
 
 if (navigator.storage && navigator.storage.persist){
     navigator.storage.persist().then(function(persistent) {
@@ -67,6 +67,7 @@ const setDirectory = (id, discardCache) => async function(dispatch, getState) {
         parents
     })
 }
+
 export const toggleCachedOnly = () => (dispatch, getState) => {
     dispatch({
         type: TOGGLE_CACHED_ONLY
@@ -110,7 +111,7 @@ export const toggleIndex = entry => async (dispatch, getState) => {
     })
     if(!newId) return
     const url = await id2url(entry.id)
-    const response = await fetch(url + entry.index)
+    const response = await authenticate(() => fetch(url + entry.index))
     const index = await response.text()
     if(indexIdSelector(getState()) == newId) {
         dispatch({
@@ -286,12 +287,11 @@ async function fetchDir(id, oldDir) {
     const url = await id2url(id)
     let response = {}
     try{
-        response = await fetch(url, { method: 'GET' , credentials: 'same-origin'})
+        response = await authenticate(() => fetch(url, { method: 'GET' , credentials: 'same-origin'}))
     }
     catch(e){
         console.error('fetchDir exception', e)
     }
-    checkAuthStatus(response)
     if(response.status != 200) {
         console.error('fetchDir error', response)
         return []
@@ -361,7 +361,7 @@ async function getBlob(entry, dispatch, getState) {
             dispatch(refresh())
             dispatch(downloadMissing())
             const url = await id2url(id)
-            blob = await fetchBlob(url)
+            blob = await authenticate(() => fetchBlob(url))
             await ensureDbSmallerThan(maxDbSize - blob.size)
             await putBlob(id, blob, dispatch, getState)
         }
@@ -529,8 +529,7 @@ async function fetchBlob(url) {
                 resolve(blob)
             }
             else {
-                checkAuthStatus(this)
-                reject(this.status)
+                resolve(this)
                 console.error('XMLHttpRequest Status', this.status)
             }
         }
@@ -542,11 +541,33 @@ async function fetchBlob(url) {
     })
 }
 
-const checkAuthStatus = (request) => {
-    if(request.status == 401) {
-        location.href="/api/v1/auth/login.html"
-        return true
-    }
+// retry after login, if unauthenticated
+const authenticate = async func => {
+  let response = await func()
+  if(response && (response.status == 401)) {
+    await login()
+    response = await func()
+  }
+  return response
+}
+
+const login = () => {
+  if(authWindow && !authWindow.closed) {
+    authWindow.focus()
+    return loginPromise
+  }
+  loginPromise = new Promise(resolve => {
+    authWindow = window.open('/api/v1/auth/login.html', '_blank')
+    const timerId = setInterval(() => {
+      if(authWindow.closed) {
+        clearInterval(timerId)
+        authWindow = null
+        resolve()
+        loginPromise = null
+      }
+    },100)
+  })
+  return loginPromise
 }
 
 async function prepareJsonResponse(response) {
@@ -623,9 +644,9 @@ const refresh = () => async function (dispatch, getState) {
 export const setCurrentFile = (entryOrId, keepTimer) => async function(dispatch, getState){
     const {id, entry} = await getEntryAndId(entryOrId)
     dispatch({
-        type: SET_CURRENT_FILE,
-        id
-    })
+      type: SET_CURRENT_FILE,
+      id
+    }) 
     await remember(entry, 'lastPlayed')
     dispatch(refresh())
     const blob = await getBlob(entry, dispatch, getState)
@@ -637,6 +658,7 @@ export const setCurrentFile = (entryOrId, keepTimer) => async function(dispatch,
         // if one file ended and we are just playing the next one, we don't want the timer to restart
         if(!keepTimer) dispatch(setTimer())
     }
+    else console.error('noblob')
     dispatch(downloadMissing())
 }
 async function remember (entryOrId, key) {
