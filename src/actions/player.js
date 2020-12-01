@@ -558,6 +558,7 @@ const login = () => {
   }
   loginPromise = new Promise(resolve => {
     authWindow = window.open('/api/v1/auth/login.html', '_blank')
+    if(!authWindow) return alert('You must allow popups in order to log in!')
     const timerId = setInterval(() => {
       if(authWindow.closed) {
         clearInterval(timerId)

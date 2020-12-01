@@ -9,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [12.x]
+        node-version: [14.x]
 
     steps:
     - uses: actions/checkout@v1
@@ -34,10 +34,10 @@ jobs:
     - name: Build Docker image
       run: docker build . --file Dockerfile --tag image
     - name: Log into registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+      run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
     - name: Push image
       run: |
-        IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
+        IMAGE_ID=ghcr.io/${{ github.repository }}
         # Strip git ref prefix from version
         VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
         # Strip "v" prefix from tag name
@@ -52,7 +52,6 @@ jobs:
         docker push $IMAGE_ID:${{ steps.autotag.outputs.version }}
         #docker tag image $IMAGE_ID:$VERSION
         #docker push $IMAGE_ID:$VERSION
-        
+
       env:
         CI: true
-        IMAGE_NAME: server
